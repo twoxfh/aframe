@@ -1,0 +1,494 @@
+
+<html>
+  <head>
+    <title>AnimateButton</title> 
+    <meta charset="utf-8" />
+  <script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-stereo-component@0.6.0/dist/aframe-stereo-component.min.js"></script>
+ <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+
+  <script src="https://unpkg.com/aframe-environment-component@1.1.0/dist/aframe-environment-component.min.js"></script>
+ <script src="keyboard.js"></script>
+ <script src="zigzagboard.js"></script>
+ <script src="https://unpkg.com/aframe-textarea-component/dist/aframe-textarea-component.min.js"></script>
+<script>
+AFRAME.registerComponent('spline-curve', {
+    schema: 
+    {
+		// data for curves defined by parametric functions
+		directions: { default: ['0 0 0','1 1 1'] },
+		curvetype: {  type: "string", default: 'catmullrom' },
+		//centripetal, chordal
+		tension: { type: "number", default: 0.1 },
+		closed: { type: "boolean", default: false },
+		tRange: 	  { type: "array", default: [0, 1] }
+    },
+    
+    eval: function(t)
+    {
+    	return new THREE.Vector3(t,t,t);
+    },
+
+    init: function() 
+    {
+   
+   var data = this.data;
+
+		this.eval = function( tValue )
+		{
+    
+	      var vectors = data.directions.map(function (direction) {
+	      var point = direction.split(' ').map( function (x) { return parseInt(x); });
+	      let fi = point[0] * Math.PI / 180
+          let theta = point[1] * Math.PI / 180
+
+         // z axis is inverted
+          let z = (-1) * Math.sin(theta) * Math.cos(fi) * point[2]
+          let x = Math.sin(theta) * Math.sin(fi) * point[2]
+          let y = Math.cos(theta) * point[2]
+	      return new THREE.Vector3(x,y,z);
+	    })
+    
+	    var spline = new THREE.CatmullRomCurve3(vectors);
+	    spline.closed = data.closed;
+	  	spline.curveType = String(data.curvetype);
+		spline.tension = parseFloat(data.tension);
+	    var pos = spline.getPoint(tValue);
+		
+		return new THREE.Vector3(pos.x,pos.y, pos.z);
+		}
+	}
+});
+    
+ /* 
+	Note: compatible with aframe-parametric-curve and aframe-compass-curve components
+*/
+AFRAME.registerComponent("curve-follow",
+{
+	schema: 
+    {
+		// reference to entity containing component with curve data
+		curveData:      { type: "string",  default: "" },
+		// component type that generated curve data
+		type:      		{ type: "string",  default: "parametric-curve" },
+
+		// once end of path is reached, restart from beginning?
+		loop: {type: "boolean", default: false},
+
+		// time (seconds) required to traverse path
+		duration: {type: "number", default: 4},
+
+		// actively follow path?
+		enabled: {type: "boolean", default: true},
+
+		// follow path in reverse
+		reverse: {type: "boolean", default: false}
+    },
+
+    init: function()
+	{
+		let entity = document.querySelector(this.data.curveData);
+		if ( !entity )
+		{
+			console.error("no element: " + this.data.curveData);
+			return;
+		}
+		let curveComponent = entity.components[this.data.type];
+		if ( !curveComponent )
+		{
+			console.error(
+				"element: " + this.data.curveData +
+			 	" does not have component: " + this.data.type );
+			return;			
+		}
+
+
+		let f    = curveComponent.eval;
+		let tMin = curveComponent.data.tRange[0];
+		let tMax = curveComponent.data.tRange[1];
+
+		this.path = function ( u ) 
+		{
+			// three.js convention:
+			// 'u' is a parameter in range [0, 1]; think of 'u' as percent
+			// convert 'u' to value in range [tMin, tMax]
+			let tValue = tMin + (tMax - tMin) * u;
+			
+			return f(tValue);
+		};
+
+		if ( !this.data.reverse )
+		{
+			// moving forwards (default), starting time is zero
+			this.elapsedTime = 0; 		
+		}
+		else
+		{
+			// moving in reverse direction, starting time at maximum and counting down
+			this.elapsedTime = this.data.duration;
+		}
+		
+		this.upVector = new THREE.Vector3(0,1,0);
+	},
+
+	tick: function(time, deltaTime)
+	{
+		if ( !this.data.enabled )
+			return;
+		
+		// once elapsedTime is out of bounds, reset (if looping) or return
+		if ( this.elapsedTime > this.data.duration || this.elapsedTime < 0)
+		{
+			if ( this.data.loop )
+			{
+				if ( !this.data.reverse )
+					this.elapsedTime = 0;
+				else
+					this.elapsedTime = this.data.duration;
+			}
+			else
+				return;
+		}
+
+		// convert time (milliseconds) to t (seconds)
+		// and take into account reverse direction setting
+		if ( !this.data.reverse )
+			this.elapsedTime += deltaTime / 1000;
+		else
+			this.elapsedTime -= deltaTime / 1000;
+			
+		let percentComplete = this.elapsedTime / this.data.duration;
+
+		// get current position; take into account travel speed (duration)
+		let pos = this.path( percentComplete );
+
+		this.el.object3D.position.set( pos.x, pos.y, pos.z );
+
+		let pos2 = this.path( percentComplete + 0.0001 );
+		let deltaPos = new THREE.Vector3().subVectors(pos2, pos);
+
+		let rotX = Math.asin( deltaPos.y / deltaPos.length() );
+		let rotY = Math.atan2( deltaPos.x, deltaPos.z );
+
+		this.el.object3D.rotation.set( -rotX, 0, 0 );
+		this.el.object3D.rotateOnWorldAxis(this.upVector, rotY);
+	}
+});
+
+     AFRAME.registerComponent('fromspherical', {
+       schema: {
+         fi: {type: "number"},
+         theta: {type: "number"},
+         r: {type: "number"},
+       },
+       init: function() {
+         //theta 90 is center 60 is top 120 is bottom
+         //fi -42 is left 
+         let fi = this.data.fi * Math.PI / 180
+         let theta = this.data.theta * Math.PI / 180
+
+         // z axis is inverted
+         let z = (-1) * Math.sin(theta) * Math.cos(fi) * this.data.r
+         let x = Math.sin(theta) * Math.sin(fi) * this.data.r
+         let y = Math.cos(theta) * this.data.r
+         this.el.setAttribute('position', {
+           x: x,
+           y: y,
+           z: z
+         });
+
+       },
+         update: function() {
+         //theta 90 is center 60 is top 120 is bottom
+         //fi -42 is left 
+         let fi = this.data.fi * Math.PI / 180
+         let theta = this.data.theta * Math.PI / 180
+
+         // z axis is inverted
+         let z = (-1) * Math.sin(theta) * Math.cos(fi) * this.data.r
+         let x = Math.sin(theta) * Math.sin(fi) * this.data.r
+         let y = Math.cos(theta) * this.data.r
+         this.el.setAttribute('position', {
+           x: x,
+           y: y,
+           z: z
+         });
+        var ebox = document.getElementById('location');
+        ebox.setAttribute("text","value",this.data.fi + ' ' + this.data.theta + ' ' + this.data.r);
+       }
+
+
+     });
+
+
+function logicalPosition(x,y,z){
+         let fi = x * Math.PI / 180;
+         let theta = y * Math.PI / 180;
+         let rz = (-1) * Math.sin(theta) * Math.cos(fi) * z;
+         let rx = Math.sin(theta) * Math.sin(fi) * z;
+         let ry = Math.cos(theta) * z;
+         return rx + ' ' + ry + ' ' + rz;
+}
+
+var enabled = true; 
+var reverse = false;
+var infov= false;
+var patchleft = false;
+var patchright = false;
+var positions = [];
+//var boxes = document.querySelectorAll("a-entity.box");
+//var radius = boxes[0].getAttribute("geometry").radius;
+//var ebox = document.getElementById('follow');
+
+Keyboard.attach(document);
+
+Keyboard.add_binding({
+    key: "t",
+    desc: "Faster",
+    callback: function(ev){
+    	var ebox = document.getElementById('follow');
+		var dur = ebox.getAttribute("curve-follow").duration;
+		if (dur != 1){
+		ebox.setAttribute("curve-follow", "duration", dur - 1);
+		}
+    }
+});
+
+Keyboard.add_binding({
+    key: "w",
+    desc: "Slower",
+    callback: function(ev){
+    	var ebox = document.getElementById('follow');
+		var dur = ebox.getAttribute("curve-follow").duration;
+		ebox.setAttribute("curve-follow", "duration", dur + 1);
+    }
+});
+
+Keyboard.add_binding({
+    key: "a",
+    desc: "Patch Left",
+    callback: function(ev){
+    	var ebox = document.getElementById('follow');
+		patchleft=!patchleft;
+		ebox.setAttribute("visible", patchleft);
+    }
+});
+
+Keyboard.add_binding({
+    key: "g",
+    desc: "Patch Right",
+    callback: function(ev){
+    	var ebox = document.getElementById('follow');
+		patchright=!patchright;
+		ebox.setAttribute("visible", patchright);
+    }
+});
+
+Keyboard.add_binding({
+    key: "r",
+    desc: "Reverse",
+    callback: function(ev){
+    	var ebox = document.getElementById('follow');
+		reverse=!reverse;
+		ebox.setAttribute("curve-follow", "reverse", reverse);
+    }
+});
+
+
+Keyboard.add_binding({
+    key: "e",
+    desc: "Start/Stop",
+    callback: function(ev){
+    	var ebox = document.getElementById('follow');
+		enabled=!enabled;
+		console.log(enabled);
+		ebox.setAttribute('curve-follow', 'enabled', enabled);
+    }
+});
+
+Keyboard.add_binding({
+    key: "z",
+    desc: "Decrease size",
+    callback: function(ev){
+    	var boxes = document.querySelectorAll("a-entity.box");
+    	var radius = boxes[0].getAttribute("geometry").radius;
+		for(let i=0; i<boxes.length; i++)
+		{boxes[i].setAttribute("geometry", "radius", radius - .05);}
+    }
+});
+
+Keyboard.add_binding({
+    key: "x",
+    desc: "Increase size",
+    callback: function(ev){
+    	var boxes = document.querySelectorAll("a-entity.box");
+    	var radius = boxes[0].getAttribute("geometry").radius;
+		for(let i=0; i<boxes.length; i++)
+		{boxes[i].setAttribute("geometry", "radius", radius + .05);}
+    }
+});
+
+Keyboard.add_binding({
+    key: "S",
+    desc: "Right",
+    callback: function(ev){
+    		var ebox = document.getElementById('guide');
+    		var vfi = parseInt(ebox.getAttribute("fromspherical").fi);
+    		ebox.setAttribute("fromspherical", "fi", vfi += 1);
+	 }
+});
+
+Keyboard.add_binding({
+    key: "A",
+    desc: "Left",
+    callback: function(ev){
+    		var ebox = document.getElementById('guide');
+    		var vfi = parseInt(ebox.getAttribute("fromspherical").fi);
+    		ebox.setAttribute("fromspherical", "fi", vfi -= 1);
+    }
+});
+
+Keyboard.add_binding({
+    key: "W",
+    desc: "Up",
+    callback: function(ev){
+    		var ebox = document.getElementById('guide');
+    		var vfi = parseInt(ebox.getAttribute("fromspherical").theta);
+    		ebox.setAttribute("fromspherical", "theta", vfi -= 1);
+    }
+});
+
+Keyboard.add_binding({
+    key: "D",
+    desc: "Down",
+    callback: function(ev){
+    		var ebox = document.getElementById('guide');
+    		var vfi = parseInt(ebox.getAttribute("fromspherical").theta);
+    		ebox.setAttribute("fromspherical", "theta", vfi += 1);
+    
+    }
+});
+
+Keyboard.add_binding({
+    key: "Z",
+    desc: "Back",
+    callback: function(ev){
+    		var ebox = document.getElementById('guide');
+    		var vfi = parseInt(ebox.getAttribute("fromspherical").r);
+    		ebox.setAttribute("fromspherical", "r", vfi += 1);
+    }
+});
+
+Keyboard.add_binding({
+    key: "X",
+    desc: "Forward",
+    callback: function(ev){
+   		var ebox = document.getElementById('guide');
+    		var vfi = parseInt(ebox.getAttribute("fromspherical").r);
+    		ebox.setAttribute("fromspherical", "r", vfi -= 1);
+    }
+});
+
+Keyboard.add_binding({
+    key: "C",
+    desc: "Add Position",
+    callback: function(ev){
+    	var ebox = document.getElementById('guide');
+    	positions.push(ebox.getAttribute("fromspherical").fi + ' ' + ebox.getAttribute("fromspherical").theta + ' ' + ebox.getAttribute("fromspherical").r);
+    }
+});
+
+Keyboard.add_binding({
+    key: "Q",
+    desc: "Start new path",
+    callback: function(ev){
+    	var ebox = document.getElementById('curve');
+    	ebox.setAttribute("spline-curve","directions", positions.join());
+    	positions=[];
+    	console.log(ebox.getAttribute("spline-curve").directions);
+    }
+});
+
+Keyboard.add_binding({
+    key: "?",
+    desc: "Print this help.",
+    callback: function(ev){
+    	var info = document.getElementById('info');
+    	var text = Keyboard.list_bindings();
+    	info.setAttribute("textarea", "text", text);
+		infov=!infov;
+		info.setAttribute("visible", infov);
+    }       
+    
+});
+      
+
+
+
+
+
+  </script>
+
+  </head>
+<body>
+  
+    <a-scene> 
+  <a-assets>
+    <a-mixin id="red" material="color: #ff0000"></a-mixin>
+    <a-mixin id="blue" material="color: #0000ff"></a-mixin>
+    <a-mixin id="cube" geometry="primitive: box; width:.5"></a-mixin>
+    <img id="grid" src="border.png" crossorigin="anonymous" />
+  </a-assets>
+
+<a-entity geometry="primitive: box; width:30; height:30;" 
+		position = "0 5 -15"
+		material = "src: #grid; repeat: 30 30; color: white"
+		shadow = "cast: true; receive: true"></a-entity>
+<!--  <a-entity animation-test="startpath: -3 0 0; paths: -3 12 0, 6 0 0, 6 12 0, -3 0 0" id="rwar" visible="true"></a-entity>-->
+ <a-entity id="guide" fromspherical='fi: 0; theta: 60; r: 15' geometry="primitive: sphere; radius: .5;" material="color: blue"></a-entity>
+ <a-entity id="location" fromspherical='fi: 0; theta: 89; r: 9' text="color: red; height: 10; width:10; value: Hello World;"></a-entity>
+
+  <a-entity spline-curve="directions: -40 40 15, 40 40 15, -40 80 15, 40 80 15, -40 40 15;" 
+  id="curve"></a-entity>
+
+<a-entity curve-follow="curveData: #curve; type: spline-curve; duration: 60; loop: true; reverse:false; enabled:true;" id="follow" look-at="[camera]">
+    <a-entity class="box" id="box1" geometry="primitive: sphere; radius: .5;" material="color: red" stereo="eye:right"></a-entity>
+    <a-entity class="box" id="box2" geometry="primitive: sphere; radius: .5;" material="color: green" stereo="eye:left"></a-entity>
+</a-entity>
+
+   
+<a-entity id="player" environment="preset: forest; lighting: point; lightPosition: 3 5 11; groundColor: #445; grid: cross">
+</a-entity> 
+
+
+<a-entity fromspherical='fi: 0; theta: 0; r: 1'>
+	<a-entity id="patchleft" geometry="primitive: box; height: 60; width: 60; depth: -3;" material="color: black" stereo="eye:left" visible="false"></a-entity>
+	<a-entity id="patchright" geometry="primitive: box; height: 60; width: 60; depth: -3;" material="color: black" stereo="eye:right" visible="false"></a-entity>
+<a-entity id="info" position="0 0 -1" textarea="cols: 20; rows: 10; text: this is a 
+multiline textarea; backgroundColor: #01579b; color: white; disabledBackgroundColor: red; disabled: false;" visible="true"></a-entity>
+
+    <a-xycontainer position="0 6 -16" width="32" height="5" direction="horizontal" spacing="0.5">
+    <a-xycontainer direction="column" spacing="0.1" padding="0.2">
+    <a-xylabel value="Menu" width="2" height="0.5"></a-xylabel>
+    <a-xybutton label="Button"></a-xybutton>
+    <a-xyselect id="select" values="abc,123,Foo,Bar" select="1"></a-xyselect>
+    <a-xytoggle id="toggle" value="true"></a-xytoggle>
+</a-xycontainer>
+</a-xycontainer>
+    <a-entity id="camera" camera position="0 6 0" stereocam="eye:left;">
+  
+  
+<!--        <a-entity cursor="fuse: true; fuseTimeout: 10"
+            position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+            material="color: black; shader: flat">
+  </a-entity>-->
+    </a-entity>
+</a-entity>
+
+   <a-sky id="sky" color="#fff"></a-sky>
+        </a-scene>
+          
+</body>
+
+</html>
