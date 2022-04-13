@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>VR Instruments - Marimba</title>
+	<meta http-equiv="X-UA-Compatible" content="requiresActiveX=true" />
+	<script src="https://cdn.jsdelivr.net/npm/jzz">
+	</script>
+	<script src="https://cdn.jsdelivr.net/npm/jzz-synth-tiny">
+	</script>
+	<script src="https://aframe.io/releases/1.0.3/aframe.min.js"></script>
+
+	<script src="https://lib.wonderleap.co/releases/0.1.1/wonderleap.js">
+	</script>
+
+	<script src="https://unpkg.com/aframe-aabb-collider-component@3.1.0/dist/aframe-aabb-collider-component.min.js">
+	</script>
+	<script src="https://supereggbert.github.io/aframe-htmlembed-component/dist/build.js">
+	</script>
+	<script src="https://unpkg.com/aframe-haptics-component/dist/aframe-haptics-component.min.js">
+	</script>
+<script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.0/dist/aframe-extras.min.js"></script>
+  
+  <script src="js/last-position.js"></script>
+  <script src="https://unpkg.com/@tonejs/midi"></script>
+	<script type="text/javascript" src="https://unpkg.com/tone@13.4.9"></script>
+
+
+
+
+
+	<script src="js/instrumentsJSON.js"></script>
+	<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-149520757-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-149520757-1');
+</script>
+
+<meta property="og:title" content="VR Instruments - Marimba">
+<meta property="og:site_name" content="VR Instruments - Marimba">
+<meta property="og:url" content="https://vr-marimba.meduzo.repl.co/">
+<meta property="og:description" content="If you're either a musician or just want to mess around, this musical instrument is going to bring you a smile. Choose between 127 instruments and different settings to play your favorite songs.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://vr-marimba.meduzo.repl.co/assets/VRmarimba.png">
+
+
+</head>
+
+<style>
+	.instruments {
+		background-color: #4B9CA6;
+		border: solid #307982 3px;
+		border-radius: 20px;
+		color: white;
+		padding: 2px;
+		margin: 2px;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+		min-width: 30px;
+		min-height: 30px;
+	}
+
+	.instruments:active {
+		background-color: #174146;
+		border: solid #0F2C2F 3px;
+	}
+
+	.instruments:hover {
+		background-color: #215C63;
+		border: solid #307982 3px;
+	}
+
+  .artists {
+		background-color: #4B9CA6;
+		border: solid #307982 3px;
+		border-radius: 20px;
+		color: white;
+		padding: 2px;
+		margin: 2px;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+	}
+
+	.artists:active {
+		background-color: #174146;
+		border: solid #0F2C2F 3px;
+	}
+
+	.artists:hover {
+		background-color: #215C63;
+		border: solid #307982 3px;
+	}
+
+	.ui {
+		background-color: #6937A2;
+		border: solid #6937A2 3px;
+		border-radius: 4px;
+		color: white;
+		padding: 5px;
+		margin: 2px;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+	}
+
+	.ui:active {
+		background-color: #613494;
+		border: solid #391D58 3px;
+	}
+
+	.ui:hover {
+		background-color: #4A2672;
+		border: solid #201032 3px;
+	}
+
+  .colors {
+		background-color: #DDDDDD;
+		border: solid #888888 1px;
+		border-radius: 20px;
+		color: white;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+    width:10px;
+    height:10px;
+	}
+
+	.colors:active {
+		background-color: #EEEEEE;
+		border: solid #999999 3px;
+	}
+
+	.colors:hover {
+		background-color: #FFFFFF;
+		border: solid #AAAAAA 3px;
+	}
+
+
+	.small {
+		width: 200px;
+	}
+
+	.medium {
+		width: 500px;
+	}
+
+	.large {
+		width: 1200px;
+	}
+
+	h1 {
+		font-size: 16px;
+		font-family: sans-serif;
+		color: white;
+		padding: 0px;
+		margin: 0px;
+	}
+
+	h2 {
+		font-size: 12px;
+		font-family: sans-serif;
+		color: white;
+		padding: 0px;
+		margin: 0px;
+	}
+
+  .inliner {
+    display:inline-block;
+  }
+
+  ul{
+		font-size: 8px;
+		font-family: sans-serif;
+		color: white;
+		padding: 0px;
+		margin: 0px;
+  }
+
+  li{
+		padding: 0px;
+		margin: 0px;
+  }
+</style>
+
+<body>
+	<a-scene cursor="rayOrigin:mouse" renderer="antialias: true;
+                   colorManagement: true;
+                   sortObjects: true;
+                   physicallyCorrectLights: true;">
+
+    <a-assets>
+
+      <a-asset-item id="playa" src="assets/models/CHAHIN_ISLAND.gltf"></a-asset-item>
+
+    </a-assets>
+    
+
+
+    <a-entity gltf-model="#playa"></a-entity>
+    <a-text value="Model: Island - By Google Poly" color="#362204" rotation="0 0 90" position="-1.378 -0.18 -8.419"></a-text>
+
+    <a-sky color="#9999FF"></a-sky>
+    <a-plane material="shader:flat;src:assets/instrucciones.png" position="1.5 2 -1.182" rotation="0 -45 0"></a-plane>
+
+		<a-entity id="rig">
+			<a-entity camera look-controls position="0 1.7 0"></a-entity>
+			<a-entity id="rightHand" laser-controls="hand:right; model:false;" check-velocity raycaster="objects: .screen; far:2;" line="color: white; opacity: 0.1" haptics>
+				<a-text color="white" id="debug" scale=".1 .1 .1"></a-text>
+        <a-text color="white" align="center" id="rightText" scale=".1 .1 .1" position="0 0 -.1"></a-text>
+			</a-entity>
+
+			<a-entity id="leftHand" laser-controls="hand:left; model:false;" check-velocity raycaster="far:0; near:0;" line="color: white; opacity: 0.1" haptics>
+        
+        <a-text color="white" align="center" id="leftText" scale=".1 .1 .1" position="0 0 -.1"></a-text>
+				<a-entity htmlembed position="0 0 .133" class="screen" scale=".2 .2 .2" rotation="-90 180 180">
+					<div style="font-family: sans-serif;text-align: center" class="medium">
+						<h4 style="color:white">Length</h4>
+
+				<button class="ui" onclick="heightChanger(-.05);" >--</button>
+        <button class="ui" onclick="heightChanger(-.01);" >-</button>
+			  <button class="ui" onclick="resetHeight();">Reset</button>
+			  <button class="ui" onclick="heightChanger(.01);" >+</button>
+			  <button class="ui" onclick="heightChanger(.05);" >++</button>
+        
+		    <h4 style="color:white">Width</h4>
+        <button class="ui" onclick="radiusChanger(-.01);" >--</button>
+        <button class="ui" onclick="radiusChanger(-.005);" >-</button>
+			  <button class="ui" onclick="resetRadius();" >Reset</button>
+			  <button class="ui" onclick="radiusChanger(+.005);" >+</button>
+			  <button class="ui" onclick="radiusChanger(+.01);" >++</button>
+
+        <h4 style="color:white">Angle</h4>
+        <button class="ui" onclick="angleChanger(-5);" >--</button>
+        <button class="ui" onclick="angleChanger(-1);" >-</button>
+			  <button class="ui" onclick="resetAngle();" >Reset</button>
+			  <button class="ui" onclick="angleChanger(+1);" >+</button>
+			  <button class="ui" onclick="angleChanger(+5);" >++</button>
+			</div>
+
+		  </a-entity>
+
+			</a-entity>
+		</a-entity>
+    <a-ocean scale="10 10 1" position="0 -2 0"></a-ocean>
+    
+    <!--a-entity id="wonderAd" scale="1 1 1" rotation="0 45 0" wonder-ad="auId: 27813cf8-f984-48c6-b002-ddb9cc31b5f6" position="-1.5 2 -1.182"></a-entity-->
+
+    <a-entity position="-1.2 1 -0.4" id="piano"></a-entity>
+    <a-entity id="heroContainer"  position="-1.2 1.271 -0.607" rotation="-45 0 0">
+    <a-entity id="hero"></a-entity>
+    </a-entity>
+
+
+    <a-entity htmlembed position="0 1.5 -0.771" scale=".4 .4 .4" rotation="0 0 0" class="screen" scale="">
+      <div class="small" style="text-align:center">
+        <button class="instruments" onclick="movePiano(.01)">▲</button><br/>
+        <h2>Height</h2>
+        <button class="instruments" onclick="movePiano(-.01)">▼</button>
+      </div>
+
+    </a-entity>
+    
+
+    <a-entity id="pianoMenus" htmlembed position="0 1.143 -0.771" scale=".4 .4 .4" rotation="-69 0 0" class="screen" scale="">
+      <div class="large" id="contenedorPiano">
+
+        <div style="width:20%; display:inline-block; text-align:left;">
+          <ul>
+            <li>000 - 007 Piano</li>
+            <li>008 - 015 Chromatic Percussion</li>
+            <li>016 - 023 Organ</li>
+            <li>024 - 031 Guitar</li>
+            <li>032 - 039 Bass</li>
+            <li>040 - 047 Strings</li>
+            <li>048 - 055 Ensemble</li>
+            <li>056 - 063 Brass</li>
+            <li>064 - 071 Reed</li>
+            <li>072 - 079 Pipe</li>
+            <li>080 - 087 Synth Lead</li>
+            <li>088 - 095 Synth Pad</li>
+            <li>096 - 103 Synth Effects</li>
+            <li>104 - 111 Ethnic</li>
+            <li>112 - 119 Percussive</li>
+            <li>120 - 127 Sound Effects</li>
+          </ul>
+
+        </div>
+
+        <div  style="width:20%; display:inline-block; text-align:center;">
+        <h1 id="piano-family">Chromatic Percussion</h1>
+        <h2 id="piano-instrument">8 Celesta</h2>
+		  	<button class="instruments" onclick="pianoNumber(1)">1</button>
+        <button class="instruments" onclick="pianoNumber(2)">2</button>
+        <button class="instruments" onclick="pianoNumber(3)">3</button><br/>
+        <button class="instruments" onclick="pianoNumber(4)">4</button>
+        <button class="instruments" onclick="pianoNumber(5)">5</button>
+        <button class="instruments" onclick="pianoNumber(6)">6</button><br/>
+        <button class="instruments" onclick="pianoNumber(7)">7</button>
+        <button class="instruments" onclick="pianoNumber(8)">8</button>
+        <button class="instruments" onclick="pianoNumber(9)">9</button><br/>
+        <button class="instruments" onclick="pianoNumber('minus')">-</button>
+        <button class="instruments" onclick="pianoNumber(0)">0</button>
+        <button class="instruments" onclick="pianoNumber('plus')">+</button>
+        </div>
+        
+        <div  style="width:20%; display:inline-block; text-align:center">
+          
+		  	<button class="instruments" onclick="changeNoteDuration(-10)">-</button>
+        <h2 class="inliner">Note Duration</h2>
+        <button class="instruments" onclick="changeNoteDuration(10)">+</button>
+        <br/>
+        
+          
+		  	<!--button class="instruments" onclick="modifyValue('espacioInternotal',.05,false)">-</button>
+        <h2 class="inliner">Note Space</h2>
+        <button class="instruments" onclick="modifyValue('espacioInternotal',.05,true)">+</button><br/>
+        
+		  	<button class="instruments" onclick="modifyValue('anchoNotas',.001,false)">-</button>
+        <h2 class="inliner">Note Width</h2>
+        <button class="instruments" onclick="modifyValue('anchoNotas',.001,true)">+</button><br/-->
+
+        <button class="instruments" onclick="myToucher(false)">✕</button>
+        <h2 class="inliner">Touch</h2>
+        <button class="instruments" onclick="myToucher(true)">✓</button><br/>
+
+        <!--
+        <button class="instruments" onclick="myHolder(false)">✕</button>
+        <h2 class="inliner">Hold</h2>
+        <button class="instruments" onclick="myHolder(true)">✓</button><br/>-->
+        </div>
+
+        <div  style="width:20%; display:inline-block; text-align:center">
+        <h2 class="inliner">Midi (Experimental)</h2><br/>
+        
+        <button class="instruments" onclick="playMidi()">Play</button><br/>
+
+        <!--button class="instruments" onclick="stopMidi()">Stop</button><br/-->
+
+        <button class="instruments" onclick="changeSeparation(200)">-</button>
+        <h2 class="inliner">Note Speed</h2>
+		  	<button class="instruments" onclick="changeSeparation(-200)">+</button>
+        <h2 class="inliner" id="separation"></h2><br/>
+        
+		  	<button class="instruments" onclick="changeSpeed(100)">-</button>
+        <h2 class="inliner">Music Speed</h2>
+        <button class="instruments" onclick="changeSpeed(-100)">+</button>
+        <h2 class="inliner" id="speed"></h2><br/>
+
+
+        <!--
+        <h2 class="inliner">natural color</h2><br/>
+        <button class="colors" style="background-color:#000" onclick="modifyValue('blancas','#000')"></button>
+        <button class="colors" style="background-color:#FFF" onclick="modifyValue('blancas','#FFF')"></button>
+        <button class="colors" style="background-color:#00F" onclick="modifyValue('blancas','#00F')"></button>
+        <button class="colors" style="background-color:#0F0" onclick="modifyValue('blancas','#0F0')"></button>
+        <button class="colors" style="background-color:#F00" onclick="modifyValue('blancas','#F00')"></button>
+        <button class="colors" style="background-color:#FF0" onclick="modifyValue('blancas','#FF0')"></button>
+        <button class="colors" style="background-color:#0FF" onclick="modifyValue('blancas','#0FF')"></button>
+        <button class="colors" style="background-color:#F0F" onclick="modifyValue('blancas','#F0F')"></button><br/>
+        
+        <h2 class="inliner">sharps color</h2><br/>
+        <button class="colors" style="background-color:#000" onclick="modifyValue('negras','#000')"></button>
+        <button class="colors" style="background-color:#FFF" onclick="modifyValue('negras','#FFF')"></button>
+        <button class="colors" style="background-color:#00F" onclick="modifyValue('negras','#00F')"></button>
+        <button class="colors" style="background-color:#0F0" onclick="modifyValue('negras','#0F0')"></button>
+        <button class="colors" style="background-color:#F00" onclick="modifyValue('negras','#F00')"></button>
+        <button class="colors" style="background-color:#FF0" onclick="modifyValue('negras','#FF0')"></button>
+        <button class="colors" style="background-color:#0FF" onclick="modifyValue('negras','#0FF')"></button>
+        <button class="colors" style="background-color:#F0F" onclick="modifyValue('negras','#F0F')"></button><br/>
+
+        <h2 class="inliner">active color</h2><br/>
+        <button class="colors" style="background-color:#000" onclick="modifyValue('played','#000')"></button>
+        <button class="colors" style="background-color:#FFF" onclick="modifyValue('played','#FFF')"></button>
+        <button class="colors" style="background-color:#00F" onclick="modifyValue('played','#00F')"></button>
+        <button class="colors" style="background-color:#0F0" onclick="modifyValue('played','#0F0')"></button>
+        <button class="colors" style="background-color:#F00" onclick="modifyValue('played','#F00')"></button>
+        <button class="colors" style="background-color:#FF0" onclick="modifyValue('played','#FF0')"></button>
+        <button class="colors" style="background-color:#0FF" onclick="modifyValue('played','#0FF')"></button>
+        <button class="colors" style="background-color:#F0F" onclick="modifyValue('played','#F0F')"></button><br/>
+        -->
+        </div>
+      </div>
+		  </a-entity>
+
+      <a-entity id="songPanel" htmlembed position="1 1.147 -0.771" scale=".4 .4 .4" rotation="-69 0 0" class="screen" scale="">
+        <div class="medium" id="musicas">
+          
+        <div  style="display:inline-block; text-align:left">
+        
+        
+        <h1 id="genreName">Genre</h1>
+        <h2 id="songName">Song Name</h2><br/>
+
+        <button class="artists" onclick="selectSong(-1)">&lt;</button>&nbsp;&nbsp;
+        <button class="artists" onclick="selectSong(1)">&gt;</button><br/>
+        <button class="artists" onclick="loadMidiJson()">Load Song</button><br/>
+        <button class="artists" onclick="clearSong()">Clear Song</button><br/>
+        </div>
+        </div>
+      </a-entity>
+
+    
+		<a-entity position="0 1 1" id="steeldrums"></a-entity>
+    
+    <!--a-entity htmlembed position="0 1.7 2" rotation="0 180 0" class="screen">
+      <div class="medium">
+		  	<div style="font-family: sans-serif;text-align: center">
+		    <h2 style="color:white">Steel Drums</h2>
+        
+			  <button class="instruments" onclick="changeSteeldrumInstrument(0);" >Piano</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(112);"  >Tinkle Bell</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(113);"  >Agogo</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(114);"  >Steel Drums</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(115);" >Woodblock</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(116);" >Taiko Drum</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(117);" >Melodic Tom</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(118);" >Synth Drum</button>
+			  <button class="instruments" onclick="changeSteeldrumInstrument(9);" >Glockenspiel</button>
+		  	</div>
+			</div>
+ </a-entity-->
+
+   <a-entity position="4 .4 0" id="drums"></a-entity>
+
+
+ <!--a-entity htmlembed position="-4 1.7 -1.5" rotation="0 0 0" class="screen">
+      <div class="medium">
+		  	<div style="font-family: sans-serif;text-align: center">
+		    <h2 style="color:white">Harp</h2>
+        
+			  <button class="instruments" onclick="changeHarpInstrument(45);" >Pizzcato String</button>
+			  <button class="instruments" onclick="changeHarpInstrument(46);"  >Orchestral Harp</button>
+			  <button class="instruments" onclick="changeHarpInstrument(107);"  >Koto</button>
+			  <button class="instruments" onclick="changeHarpInstrument(92);"  >Pad 5 (bowed)</button>
+			  <button class="instruments" onclick="changeHarpInstrument(53);" >Voice Oohs</button>
+			  <button class="instruments" onclick="changeHarpInstrument(24);" >Acoustic Guitar (nylon)</button>
+			  <button class="instruments" onclick="changeHarpInstrument(25);" >Acoustic Guitar (steel)</button>
+			  <button class="instruments" onclick="changeHarpInstrument(28);" >Electric Guitar (muted)</button>
+			  <button class="instruments" onclick="changeHarpInstrument(8);" >Celesta</button>
+		  	</div>
+			</div>
+ </a-entity-->
+   
+   <a-entity position="-4 1.5 0" id="harp">
+   </a-entity>
+
+	</a-scene>
+  
+	<script src="js/mallets.js"></script>
+	<script src="js/piano.js"></script>
+	<script src="js/noteplayer.js"></script>
+	<!--script src="js/steeldrums.js"></script>
+	<script src="js/drums.js"></script>
+	<script src="js/harp.js"></script-->
+  <script src="js/allinstruments.js"></script>
+  
+  <script src="js/pianohero.js"></script>
+  <script src="js/helper.js"></script>
+
+</body>
+</html>
