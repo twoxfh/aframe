@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<head>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.js"></script>
+<script>(function($) {
+  var START_EVENT = 'mousedown touchstart MSPointerDown pointerdown'
+    , END_EVENT   = 'mouseup touchend MSPointerUp pointerup'
+    , MOVE_EVENT  = 'mousemove touchmove MSPointerMove pointermove scroll'
+
+  function translate(el, x, y) {
+    vendorify('transform', el, 'translate(' + x + 'px, ' + y + 'px)')
+  }
+
+  function transition(el, val) {
+    vendorify('transition', el, val)
+  }
+
+  function getTouchPageX(e) {
+    e = e.originalEvent || e
+    return window.event && window.event.changedTouches && event.changedTouches[0].pageX || e.pageX
+  }
+
+  function getTouchPageY(e) {
+    e = e.originalEvent || e
+    return window.event && window.event.changedTouches && event.changedTouches[0].pageY || e.pageY
+  }
+
+  function vendorify(property, el, val) {
+    property = property.toLowerCase()
+    var titleCased = property.charAt(0).toUpperCase() + property.substr(1)
+    var vendorPrefixes = ['webkit', 'Moz', 'ms', 'O']
+    var properties = vendorPrefixes.map(function(prefix) {
+      return prefix + titleCased
+    }).concat('transform')
+    for (var i = 0, len = properties.length; i < len; ++i) {
+      if (properties[i] in el.style) {
+        if (val !== undefined) el.style[properties[i]] = val
+        else return el.style[properties[i]]
+        break
+      }
+    }
+  }
+
+  var eventProperties = [
+    'altKey', 'bubbles', 'button', 'cancelable', 'charCode', 'clientX',
+    'clientY', 'ctrlKey', 'currentTarget', 'data', 'detail', 'eventPhase',
+    'metaKey', 'offsetX', 'offsetY', 'originalTarget', 'pageX', 'pageY',
+    'relatedTarget', 'screenX', 'screenY', 'shiftKey', 'target', 'view',
+    'which'
+  ]
+  function trigger(el, name, originalEvent, arg) {
+    if (!el[0]) return
+
+    originalEvent = originalEvent.originalEvent || originalEvent
+    var props = {}
+    eventProperties.forEach(function(prop) {
+      props[prop] = originalEvent[prop]
+    })
+    props.currentTarget = props.target = el[0]
+
+    var win = (el[0].ownerDocument.defaultView || el[0].ownerDocument.parentWindow)
+    var $ = win.Zepto || win.jQuery
+
+    var e = $.Event(name, props)
+    $(el[0]).trigger(e, arg)
+    return e
+  }
+
+  var nextId = 0
+  var Dragging = function() {
+    this.eventHandler = $('<div />')
+    this.parent = this.el = this.handle = null
+    this.origin = { x: 0, y: 0, transition: null, translate: null, offset: { x: 0, y: 0 } }
+    this.lastEntered = this.currentTarget = null
+    this.lastX = this.lastY = this.lastDirection = null
+    this.originalCss = {}
+    this.windows = [window]
+
+    var placeholder
+    Object.defineProperty(this, 'placeholder', {
+      get: function() { return placeholder },
+      set: function(val) {
+        if (placeholder === val) return
+        if (placeholder) placeholder.remove()
+        placeholder = val
+      }
+    })
+  }
+
+  Dragging.prototype.on = function() {
+    this.eventHandler.on.apply(this.eventHandler, Array.prototype.slice.call(arguments))
+    return this
+  }
+
+  Dragging.prototype.off = function() {
+    this.eventHandler.off.apply(this.eventHandler, Array.prototype.slice.call(arguments))
+    return this
+  }
+
+  Dragging.prototype.start = function(parent, el, e, handle) {
+    this.parent = parent
+    this.el = el
+    this.handle = handle
+    var el = this.handle || this.el
+    this.origin.x = getTouchPageX(e)
+    this.origin.y = getTouchPageY(e)
+    this.origin.transform  = vendorify('transform', this.el[0])
+    this.origin.transition = vendorify('transition', this.el[0])
+    var rect = this.el[0].getBoundingClientRect()
+    this.origin.offset.x = rect.left + (window.scrollX || window.pageXOffset) - this.origin.x
+    this.origin.offset.y = rect.top + (window.scrollY || window.pageYOffset) - this.origin.y
+    this.origin.scrollX = (window.scrollX || window.pageXOffset)
+    this.origin.scrollY = (window.scrollY || window.pageYOffset)
+    // the draged element is going to stick right under the cursor
+    // setting the css property `pointer-events` to `none` will let
+    // the pointer events fire on the elements underneath the helper
+    el[0].style.pointerEvents = 'none'
+    this.windows.forEach(function(win) {
+      $(win).on(MOVE_EVENT, $.proxy(this.move, this))
+      $(win).on(END_EVENT, $.proxy(this.stop, this))
+    }, this)
+    transition(el[0], '')
+    trigger(this.eventHandler, 'dragging:start', e)
+    return this.el
+  }
+
+  Dragging.prototype.stop = function(e) {
+    var dropEvent = null
+    var revert = true
+    if (this.last) {
+      var last = this.last
+      this.last = null
+      dropEvent = trigger($(last), 'dragging:drop', e)
+      revert = !dropEvent.isDefaultPrevented()
+    }
+
+    if (!this.el) {
+      return
+    }
+
+    for (var prop in this.originalCss) {
+      this.el.css(prop, this.originalCss[prop])
+      delete this.originalCss[prop]
+    }
+
+    trigger(this.eventHandler, 'dragging:stop', e, this.el)
+    this.placeholder = null
+    if (!this.handle) {
+      this.adjustPlacement(e)
+    }
+
+    var el = this.el
+    if (this.handle) {
+      this.handle.remove()
+    }
+
+    setTimeout((function(el, origin) {
+      transition(el[0], 'all 0.25s ease-in-out 0s')
+      vendorify('transform', el[0], origin.transform || '')
+      setTimeout(transition.bind(null, el[0], origin.transition || ''), 250)
+      el[0].style.pointerEvents = ''
+    }).bind(null, el, this.origin))
+
+    this.windows.forEach(function(win) {
+      $(win).off(MOVE_EVENT, this.move)
+      $(win).off(END_EVENT, this.stop)
+    }, this)
+    this.parent = this.el = this.handle = null
+  }
+
+  Dragging.prototype.move = function(e) {
+    if (!this.el) return
+
+    var doc = this.el[0].ownerDocument
+    var win = doc.defaultView || doc.parentWindow
+
+    if (e.type !== 'scroll') {
+      var pageX = getTouchPageX(e)
+      var pageY = getTouchPageY(e)
+
+      if (e.view !== win && e.view.frameElement) {
+        pageX += e.view.frameElement.offsetLeft
+        pageY += e.view.frameElement.offsetTop
+      }
+
+      var clientX = e.clientX || (e.originalEvent && e.originalEvent.clientX) || window.event && window.event.touches && window.event.touches[0].clientX || 0
+        , clientY = e.clientY || (e.originalEvent && e.originalEvent.clientY) || window.event && window.event.touches && window.event.touches[0].clientY || 0
+
+      var doc = this.el[0].ownerDocument
+      var over
+      if (!isOldIE) {
+        over = e.view.document.elementFromPoint(clientX, clientY)
+      } else {
+        over = e.view.document.msElementsFromPoint(clientX, clientY)
+        over = over[0] === this.el[0] ? over[1] : over[0]
+      }
+
+      var deltaX = this.lastX - pageX
+      var deltaY = this.lastY - pageY
+      var direction = deltaY > 0 && 'up' || deltaY < 0 && 'down'
+                   || deltaX > 0 && 'up'|| deltaX < 0 && 'down'
+                   || this.lastDirection
+      if (!dragging.currentTarget) {
+        this.setCurrent(over)
+      }
+
+      if (this.currentTarget) {
+        if (over !== this.last && this.lastEntered !== this.currentTarget) {
+          trigger($(this.lastEntered), 'dragging:leave', e)
+          trigger($(this.currentTarget), 'dragging:enter', e)
+          this.lastEntered = this.currentTarget
+        } else if (direction !== this.lastDirection) {
+          trigger($(this.currentTarget), 'dragging:diverted', e)
+        }
+      }
+
+      this.last = over
+      this.currentTarget = null
+      this.lastDirection = direction
+      this.lastX = pageX
+      this.lastY = pageY
+      this.origin.scrollX = (window.scrollX || window.pageXOffset)
+      this.origin.scrollY = (window.scrollY || window.pageYOffset)
+    } else {
+      var pageX = this.lastX + ((window.scrollX || window.pageXOffset) - this.origin.scrollX)
+        , pageY = this.lastY + ((window.scrollY || window.pageYOffset) - this.origin.scrollY)
+    }
+
+    // border scrolling only for root window
+    if (e.view !== win && e.view && e.view.frameElement) {
+      var bottom = (pageY - (window.scrollY || window.pageYOffset) - window.innerHeight) * -1
+      var bottomReached = document.documentElement.offsetHeight < (window.scrollY || window.pageYOffset) + window.innerHeight
+      if (bottom <= 10 && !bottomReached) {
+        setTimeout(function() { window.scrollBy(0, 5) }, 50)
+      }
+
+      var top = (pageY - (window.scrollY || window.pageYOffset))
+      var topReached = (window.scrollY || window.pageYOffset) <= 0
+      if (top <= 10 && !topReached) {
+        setTimeout(function() { window.scrollBy(0, -5) }, 50)
+      }
+    }
+
+    var deltaX = pageX - this.origin.x
+      , deltaY = pageY - this.origin.y
+    var el = this.handle || this.el
+
+    translate(el[0], deltaX, deltaY)
+  }
+
+  Dragging.prototype.setCurrent = function(target) {
+    this.currentTarget = target
+  }
+
+  Dragging.prototype.css = function(prop, val) {
+    if (!this.el) return
+    this.originalCss[prop] = this.el.css(prop)
+    this.el.css(prop, val)
+  }
+
+  Dragging.prototype.adjustPlacement = function(e) {
+    var el = this.handle && this.handle[0] || this.el[0]
+    translate(el, 0, 0)
+    var rect = el.getBoundingClientRect()
+    this.origin.x = rect.left + (window.scrollX || window.pageXOffset) - this.origin.offset.x
+    this.origin.y = rect.top + (window.scrollY || window.pageYOffset) - this.origin.offset.y
+    var pageX  = getTouchPageX(e) || this.lastX
+      , pageY  = getTouchPageY(e) || this.lastY
+      , deltaX = pageX - this.origin.x
+      , deltaY = pageY - this.origin.y
+    translate(el, deltaX, deltaY)
+  }
+
+  var dragging
+  try {
+    if (parent.$ && parent.$.dragging) {
+      dragging = parent.$.dragging
+      dragging.windows.push(window)
+    }
+  } catch (e) {}
+
+  dragging = $.dragging = dragging || new Dragging()
+
+  // from https://github.com/rkusa/selector-observer
+  var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver
+  function matches(el, selector) {
+    var fn = el.matches || el.matchesSelector || el.msMatchesSelector || el.mozMatchesSelector || el.webkitMatchesSelector || el.oMatchesSelector
+    return fn ? fn.call(el, selector) : false
+  }
+  function toArr(nodeList) {
+    return Array.prototype.slice.call(nodeList)
+  }
+
+  // polyfill for IE < 11
+  var isOldIE = false
+  if (typeof MutationObserver === 'undefined') {
+    MutationObserver = function(callback) {
+      this.targets = []
+      this.onAdded = function(e) {
+        callback([{ addedNodes: [e.target], removedNodes: [] }])
+      }
+      this.onRemoved = function(e) {
+        callback([{ addedNodes: [], removedNodes: [e.target] }])
+      }
+    }
+
+    MutationObserver.prototype.observe = function(target) {
+      target.addEventListener('DOMNodeInserted', this.onAdded)
+      target.addEventListener('DOMNodeRemoved', this.onRemoved)
+      this.targets.push(target)
+    }
+
+    MutationObserver.prototype.disconnect = function() {
+      var target
+      while (target = this.targets.shift()) {
+        target.removeEventListener('DOMNodeInserted', this.onAdded)
+        target.removeEventListener('DOMNodeRemoved', this.onRemoved)
+      }
+    }
+
+    isOldIE = !!~navigator.appName.indexOf('Internet Explorer')
+  }
+
+  var SelectorObserver = function(targets, selector, onAdded, onRemoved) {
+    var self     = this
+    this.targets = targets instanceof NodeList
+                     ? Array.prototype.slice.call(targets)
+                     : [targets]
+
+    // support selectors starting with the childs only selector `>`
+    var childsOnly = selector[0] === '>'
+    var search = childsOnly ? selector.substr(1) : selector
+    var initialized = false
+
+    function query(nodes, deep) {
+      var result = []
+
+      toArr(nodes).forEach(function(node) {
+        //ignore non-element nodes
+        if (node.nodeType !== 1) return;
+
+        // if looking for childs only, the node's parentNode
+        // should be one of our targets
+        if (childsOnly && self.targets.indexOf(node.parentNode) === -1) {
+          return
+        }
+
+        // test if the node itself matches the selector
+        if (matches(node, search)) {
+          result.push(node)
+        }
+
+        if (childsOnly || !deep) {
+          return
+        }
+
+        toArr(node.querySelectorAll(selector)).forEach(function(node) {
+          result.push(node)
+        })
+      })
+
+      return result
+    }
+
+    function apply(nodes, deep, callback) {
+      if (!callback) {
+        return
+      }
+
+      // flatten
+      query(nodes, deep)
+      // filter unique nodes
+      .filter(function(node, i, self) {
+        return self.indexOf(node) === i
+      })
+      // execute callback
+      .forEach(function(node) {
+        callback.call(node)
+      })
+    }
+
+    var timeout      = null
+    var addedNodes   = []
+    var removedNodes = []
+
+    function handle() {
+      self.disconnect()
+
+      // filter moved elements (removed and re-added)
+      for (var i = 0, len = removedNodes.length; i < len; ++i) {
+        var index = addedNodes.indexOf(removedNodes[i])
+        if (index > -1) {
+          addedNodes.splice(index, 1)
+          removedNodes.splice(i--, 1)
+        }
+      }
+
+      //                ↓ IE workarounds ...
+      apply(addedNodes, !(initialized && isOldIE), onAdded)
+      apply(removedNodes, true, onRemoved)
+
+      addedNodes.length   = 0
+      removedNodes.length = 0
+
+      self.observe()
+    }
+
+    this.observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        addedNodes.push.apply(addedNodes, mutation.addedNodes)
+        removedNodes.push.apply(removedNodes, mutation.removedNodes)
+      })
+
+      // IE < 10 fix: wait a cycle to gather all mutations
+      if (timeout) {
+        clearTimeout(timeout)
+      }
+      timeout = setTimeout(handle)
+    })
+
+    // call onAdded for existing elements
+    if (onAdded) {
+      this.targets.forEach(function(target) {
+        apply(target.children, true, onAdded)
+      })
+    }
+
+    initialized = true
+
+    this.observe()
+  }
+
+  SelectorObserver.prototype.disconnect = function() {
+    this.observer.disconnect()
+  }
+
+  SelectorObserver.prototype.observe = function() {
+    var self = this
+    this.targets.forEach(function(target) {
+      self.observer.observe(target, { childList: true, subtree: true })
+    })
+  }
+
+  var Draggable = function(element, opts) {
+    this.id     = nextId++
+    this.el     = $(element)
+    this.opts   = opts
+    this.cancel = opts.handle !== false
+  }
+
+  Draggable.prototype.create = function() {
+    this.el
+    .on(START_EVENT, $.proxy(this.start, this))
+    .css('touch-action', 'double-tap-zoom')
+    .css('-ms-touch-action', 'double-tap-zoom')
+
+    dragging.on('dragging:stop', $.proxy(this.reset, this))
+
+    var self = this
+    setTimeout(function() {
+      self.el.trigger('draggable:create', self)
+    })
+  }
+
+  Draggable.prototype.destroy = function() {
+    this.el.off(START_EVENT, this.start)
+
+    // Todo: Fix Zepto Bug
+    dragging.off('dragging:stop', this.reset)
+  }
+
+  Draggable.prototype.enable = function() {
+    this.opts.disabled = false
+  }
+
+  Draggable.prototype.disable = function() {
+    this.opts.disabled = true
+  }
+
+  Draggable.prototype.start = function(e) {
+    if (this.opts.disabled) {
+      return false
+    }
+
+    // only start on left mouse button
+    if (e.type === 'mousedown' && e.which !== 1) {
+      return false
+    }
+
+    e = e.originalEvent || e // zepto <> jquery compatibility
+
+    if (this.opts.cancel) {
+      var target = $(e.target)
+      while (target[0] !== this.el[0]) {
+        if (target.is(this.opts.cancel)) return
+        target = target.parent()
+      }
+    }
+
+    if (this.opts.handle) {
+      var target = $(e.target), isHandle = false
+      while (target[0] !== this.el[0]) {
+        if (target.is(this.opts.handle)) {
+          isHandle = true
+          break
+        }
+        target = target.parent()
+      }
+      if (!isHandle) return
+    }
+
+    // prevent text selection
+    e.preventDefault()
+
+    var el = this.el, helper
+    if (this.opts.clone) {
+      if (typeof this.opts.clone === 'function') {
+        helper = this.opts.clone.call(this.el)
+      } else {
+        helper = this.el.clone()
+        if (this.opts.cloneClass) {
+          helper.addClass(this.opts.cloneClass)
+        }
+      }
+      var position = this.el.position()
+      helper.css('position', 'absolute')
+            .css('left', position.left).css('top', position.top)
+            .width(this.el.width()).height(this.el.height())
+      helper.insertAfter(this.el)
+    }
+
+    dragging.start(this, this.el, e, helper)
+
+    trigger(this.el, 'draggable:start', e, { item: dragging.el })
+  }
+
+  Draggable.prototype.reset = function(e, last) {
+    if (last === this.el[0]) {
+      trigger(this.el, 'draggable:stop', e, { item: dragging.el })
+    }
+  }
+
+  var Droppable = function(element, opts) {
+    this.id            = nextId++
+    this.el            = $(element)
+    this.opts          = opts
+    this.accept        = false
+  }
+
+  Droppable.prototype.create = function() {
+    this.el
+    .on('dragging:enter', $.proxy(this.enter, this))
+    .on('dragging:leave', $.proxy(this.leave, this))
+    .on('dragging:drop',  $.proxy(this.drop, this))
+
+    dragging
+    .on('dragging:start', $.proxy(this.activate, this))
+    .on('dragging:stop',  $.proxy(this.reset, this))
+
+    var self = this
+    setTimeout(function() {
+      self.el.trigger('droppable:create', self)
+    })
+  }
+
+  Droppable.prototype.destroy = function() {
+    this.el
+    .off('dragging:enter', this.enter)
+    .off('dragging:leave', this.leave)
+    .off('dragging:drop',  this.drop)
+
+    // Todo: Fix Zepto Bug
+    // dragging
+    // .off('dragging:start', this.activate)
+    // .off('dragging:stop',  this.reset)
+  }
+
+  Droppable.prototype.enable = function() {
+    this.opts.disabled = false
+  }
+
+  Droppable.prototype.disable = function() {
+    this.opts.disabled = true
+  }
+
+  Droppable.prototype.activate = function(e) {
+    this.accept = dragging.parent.opts.connectWith && this.el.is(dragging.parent.opts.connectWith)
+
+    if (!this.accept) {
+      var accept = this.opts.accept === '*'
+                || (typeof this.opts.accept === 'function' ? this.opts.accept.call(this.el[0], dragging.el)
+                                                           : dragging.el.is(this.opts.accept))
+      if (this.opts.scope !== 'default') {
+        this.accept = dragging.parent.opts.scope === this.opts.scope
+        if (!this.accept && this.opts.accept !== '*') this.accept = accept
+      } else this.accept = accept
+    }
+
+    if (!this.accept) return
+    if (this.opts.activeClass)
+      this.el.addClass(this.opts.activeClass)
+
+    trigger(this.el, 'droppable:activate', e, { item: dragging.el })
+  }
+
+  Droppable.prototype.reset = function(e) {
+    if (!this.accept) return
+    if (this.opts.activeClass) this.el.removeClass(this.opts.activeClass)
+    if (this.opts.hoverClass)  this.el.removeClass(this.opts.hoverClass)
+
+    trigger(this.el, 'droppable:deactivate', e, { item: dragging.el })
+  }
+
+  Droppable.prototype.enter = function(e) {
+    if (this.opts.disabled) return false
+
+    e.stopPropagation()
+
+    // hide placeholder, if set (e.g. enter the droppable after
+    // entering a sortable)
+    if (dragging.placeholder) dragging.placeholder.hide()
+
+    if (!this.accept) return
+
+    if (this.opts.hoverClass) {
+      this.el.addClass(this.opts.hoverClass)
+    }
+
+    trigger(this.el, 'droppable:over', e, { item: dragging.el })
+  }
+
+  Droppable.prototype.leave = function(e) {
+    if (this.opts.disabled) return false
+    // e.stopPropagation()
+
+    if (this.opts.hoverClass && this.accept) {
+      this.el.removeClass(this.opts.hoverClass)
+    }
+
+    trigger(this.el, 'droppable:out', e, { item: dragging.el })
+  }
+
+  Droppable.prototype.drop = function(e) {
+    if (this.opts.disabled || !this.accept) return false
+
+    if (!dragging.el) return
+
+    var el = dragging.el
+    var handler = typeof this.opts.receiveHandler === 'function' && this.opts.receiveHandler
+    var evtObj = { item: el }
+    var clone = null
+    if (dragging.handle) {
+      evtObj.helper = dragging.handle
+      if (!handler) {
+        clone = evtObj.clone = dragging.el.clone()
+      }
+    }
+
+    var drop = trigger(this.el, 'droppable:drop', e, evtObj)
+
+    if (!drop.isDefaultPrevented()) {
+      if (handler) {
+        handler.call(this.el, evtObj)
+      } else {
+        $(this.el).append(clone || dragging.el)
+      }
+    }
+  }
+
+  var Sortable = function(element, opts) {
+    this.id   = nextId++
+    this.el   = element
+    this.opts = opts
+
+    var tag = this.opts.placeholderTag
+    if (!tag) {
+      try {
+        tag = this.el.find(this.opts.items)[0].tagName
+      } catch(e) {
+        tag = /^ul|ol$/i.test(this.el[0].tagName) ? 'li' : 'div'
+      }
+    }
+
+    this.placeholder = $('<' + tag + ' id="__ph' + this.id + '" class="' + this.opts.placeholder + '" />')
+
+    this.accept = this.index = this.direction = null
+  }
+
+  Sortable.prototype.create = function() {
+    this.el
+    .on(START_EVENT,         this.opts.items, $.proxy(this.start, this))
+    .on('dragging:enter',    this.opts.items, $.proxy(this.enter, this))
+    .on('dragging:diverted', this.opts.items, $.proxy(this.diverted, this))
+    .on('dragging:drop',     this.opts.items, $.proxy(this.drop, this))
+
+    $(this.el).find(this.opts.items)
+    .css('touch-action', 'double-tap-zoom')
+    .css('-ms-touch-action', 'double-tap-zoom')
+
+    this.el
+    .on('dragging:enter',    $.proxy(this.enter, this))
+    .on('dragging:diverted', $.proxy(this.diverted, this))
+    .on('dragging:drop',     $.proxy(this.drop, this))
+
+    dragging
+    .on('dragging:start', $.proxy(this.activate, this))
+    .on('dragging:stop',  $.proxy(this.reset, this))
+
+    var self = this
+    setTimeout(function() {
+      self.el.trigger('sortable:create', self)
+    })
+
+    this.observer = new SelectorObserver(this.el[0], this.opts.items, function() {
+    }, function() {
+      if (this === self.placeholder[0] || (dragging.el && this === dragging.el[0])) {
+        return
+      }
+      var item = $(this)
+      item.css('touch-action', 'double-tap-zoom')
+          .css('-ms-touch-action', 'double-tap-zoom')
+      self.el.trigger('sortable:change', { item: item })
+      self.el.trigger('sortable:update', { item: item, index: -1 })
+    })
+  }
+
+  Sortable.prototype.destroy = function() {
+    this.el
+    .off(START_EVENT,         this.opts.items, this.start)
+    .off('dragging:enter',    this.opts.items, this.enter)
+    .off('dragging:diverted', this.opts.items, this.diverted)
+    .off('dragging:drop',     this.opts.items, this.drop)
+
+    this.el
+    .off('dragging:enter',    this.enter)
+    .off('dragging:diverted', this.diverted)
+    .off('dragging:drop',     this.drop)
+
+    // Todo: Fix Zepto Bug
+    // dragging
+    // .off('dragging:start', this.activate)
+    // .off('dragging:stop',  this.reset)
+
+    this.observer.disconnect()
+  }
+
+  Sortable.prototype.enable = function() {
+    this.opts.disabled = false
+  }
+
+  Sortable.prototype.disable = function() {
+    this.opts.disabled = true
+  }
+
+  Sortable.prototype.activate = function(e) {
+    this.isEmpty = this.el.find(this.opts.items).length === 0
+
+    this.accept = dragging.parent.id === this.id
+
+    if (!this.accept && dragging.parent.opts.connectWith) {
+      this.accept = this.el.is(dragging.parent.opts.connectWith)
+    }
+
+    if (!this.accept) return
+
+    this.accept = dragging.parent.id === this.id
+      || this.opts.accept === '*'
+      || (typeof this.opts.accept === 'function'
+        ? this.opts.accept.call(this.el[0], dragging.el)
+        : dragging.el.is(this.opts.accept))
+
+    if (!this.accept) return
+
+    if (this.opts.activeClass)
+      this.el.addClass(this.opts.activeClass)
+
+    trigger(this.el, 'sortable:activate', e, { item: dragging.el })
+  }
+
+  Sortable.prototype.reset = function(e) {
+    if (!this.accept) return
+    if (this.opts.activeClass) {
+      this.el.removeClass(this.opts.activeClass)
+    }
+
+    trigger(this.el, 'sortable:deactivate', e, { item: dragging.el })
+
+    if (this.index !== null) {
+      trigger(this.el, 'sortable:beforeStop', e, { item: dragging.el })
+      trigger(this.el, 'sortable:stop', e, { item: dragging.el })
+      this.index = null
+    }
+  }
+
+  Sortable.prototype.indexOf = function(el) {
+    return this.el.find(this.opts.items + ', #' + this.placeholder.attr('id')).index(el)
+  }
+
+  Sortable.prototype.start = function(e) {
+    if (this.opts.disabled || dragging.el) {
+      return
+    }
+
+    // only start on left mouse button
+    if (e.type === 'mousedown' && e.which !== 1) {
+      return false
+    }
+
+    if (this.opts.cancel) {
+      var target = $(e.target)
+      while (target[0] !== this.el[0]) {
+        if (target.is(this.opts.cancel)) return
+        target = target.parent()
+      }
+    }
+
+    if (this.opts.handle) {
+      var target = $(e.target), isHandle = false
+      while (target[0] !== this.el[0]) {
+        if (target.is(this.opts.handle)) {
+          isHandle = true
+          break
+        }
+        target = target.parent()
+      }
+      if (!isHandle) return
+    }
+
+    e.stopPropagation()
+    e.preventDefault() // prevent text selection
+
+    // use e.currentTarget instead of e.target because we want the target
+    // the event is bound to, not the target (child) the event is triggered from
+    dragging.start(this, $(e.currentTarget), e)
+
+    this.index = this.indexOf(dragging.el)
+
+    dragging.el.before(dragging.placeholder = this.placeholder.show())
+
+    // if dragging an item that belongs to the current list, hide it while
+    // it is being dragged
+    if (this.index !== null) {
+      // zepto <> jquery compatibility
+      var height = dragging.el.outerHeight ? dragging.el.outerHeight() : dragging.el.height()
+      dragging.css('margin-bottom', -height)
+    }
+
+    if (this.opts.forcePlaceholderSize) {
+      this.placeholder.height(parseFloat(dragging.el.css('height')))
+      this.placeholder.width(parseFloat(dragging.el.css('width')))
+    }
+
+    dragging.adjustPlacement(e)
+
+    trigger(this.el, 'sortable:start', e, { item: dragging.el })
+  }
+
+  Sortable.prototype.enter = function(e) {
+    if (!this.accept || this.opts.disabled) return
+
+    e.stopPropagation()
+
+    // stop if event is fired on the placeholder
+    var child = e.currentTarget, isContainer = child === this.el[0]
+    if (child === this.placeholder[0]) return
+    child = $(child)
+
+    // the container fallback is only necessary for empty sortables
+    if (isContainer && !this.isEmpty && this.placeholder.parent().length) {
+      return
+    }
+
+    dragging.placeholder = this.placeholder
+
+    if (this.opts.forcePlaceholderSize) {
+      this.placeholder.height(parseFloat(dragging.el.css('height')))
+      this.placeholder.width(parseFloat(dragging.el.css('width')))
+    }
+
+    if (!isContainer) {
+      this.diverted(e)
+    } else {
+      this.el.append(this.placeholder)
+      this.el.trigger('sortable:change', { item: dragging.el })
+    }
+  }
+
+  Sortable.prototype.diverted = function(e) {
+    if (!this.accept || this.opts.disabled) return
+    e.stopPropagation()
+
+    var child = $(e.currentTarget), isContainer = child[0] === this.el[0]
+    if (isContainer) return
+
+    // insert the placeholder according to the dragging direction
+    dragging.placeholder = this.placeholder
+    this.direction = this.indexOf(this.placeholder.show()) < this.indexOf(child) ? 'down' : 'up'
+    child[this.direction === 'down' ? 'after' : 'before'](this.placeholder)
+    dragging.adjustPlacement(e)
+
+    this.el.trigger('sortable:change', { item: dragging.el })
+  }
+
+  Sortable.prototype.drop = function(e) {
+    if (!this.accept || this.opts.disabled) return
+
+    e.stopPropagation()
+    e.preventDefault()
+
+    if (!dragging.el) return
+    if (!this.placeholder.parent().length) return
+
+    trigger(this.el, 'sortable:beforeStop', e, { item: dragging.el })
+
+    this.observer.disconnect()
+
+    var newIndex = this.indexOf(this.placeholder)
+    if (newIndex > this.index) {
+      newIndex--
+    }
+
+    var handler
+
+    // dropped element belongs to another list
+    if (this.index === null) {
+      handler = this.opts.receiveHandler
+    }
+    // dopped element belongs to the same list
+    else {
+      // updatePosition cause backwards-compatibility
+      handler = this.opts.updateHandler || this.opts.updatePosition
+    }
+
+    var el = dragging.el
+    if (typeof handler === 'function') {
+      handler.call(this.el, { item: dragging.el, index: newIndex })
+    } else {
+      if (dragging.handle) {
+        el = dragging.el.clone()
+      }
+      el.insertBefore(this.placeholder)
+    }
+
+    // if the dropped element belongs to another list, trigger the receive event
+    if (this.index === null) {
+      trigger(this.el, 'sortable:receive', e, { item: el })
+    }
+
+    // if the index changed, trigger the update event
+    if (newIndex !== this.index) {
+      this.el.trigger('sortable:update', { item: el, index: newIndex })
+    }
+
+    trigger(this.el, 'sortable:stop', e, { item: el })
+    this.index = null
+    this.observer.observe()
+
+    dragging.stop(e)
+  }
+
+  Sortable.prototype.toArray = function(opts) {
+    if (!opts) opts = {}
+    var attr = opts.attribute || 'id', attrs = []
+    this.el.find(this.opts.items).each(function() {
+      attrs.push($(this).prop(attr))
+    })
+    return attrs
+  }
+
+  function generic(constructor, identifier, defaults) {
+    return function(opts, name, value) {
+      var result = []
+      this.each(function() {
+        var instance = $(this).data(identifier)
+        if (typeof opts === 'string') {
+          if (typeof instance === 'undefined')
+            throw new Error(identifier + ' not defined')
+          switch (opts) {
+          case 'enable':  instance.enable();  break
+          case 'disable': instance.disable(); break
+          case 'destroy':
+            instance.destroy()
+            $(this).removeData(identifier)
+            break
+          case 'option':
+            // set
+            if (value !== undefined)
+              instance.opts[name] = value
+            else if (typeof name === 'object')
+              instance.opts = $.extend(instance.opts, name)
+            // get
+            else if (name)
+              result.push(instance.opts[name])
+            else
+              result.push(instance.opts)
+            break
+          // case 'serialize':
+          //   if (identifier !== 'sortable') return
+          //   result.push(instance.serialize())
+          //   break
+          case 'toArray':
+            if (identifier !== 'sortable') return
+            result.push(instance.toArray(name))
+            break
+          }
+        } else {
+          if (instance) {
+            $.extend(instance.opts, opts) // merge options
+            return this
+          }
+          instance = new constructor($(this), $.extend({}, defaults, opts))
+          instance.create()
+          $(this).data(identifier, instance)
+        }
+      })
+
+      if (result.length)
+        return result.length === 1 ? result[0] : result
+      else
+        return this
+    }
+  }
+
+  $.fn.draggable = generic(Draggable, 'draggable', {
+    cancel: 'input, textarea, button, select, option',
+    connectWith: false,
+    cursor: 'auto',
+    disabled: false,
+    handle: false,
+    initialized: false,
+    clone: false,
+    cloneClass: '',
+    scope: 'default'
+  })
+
+  $.fn.droppable = generic(Droppable, 'droppable', {
+    accept: '*',
+    activeClass: '',
+    disabled: false,
+    hoverClass: '',
+    initialized: false,
+    scope: 'default',
+    receiveHandler: null
+  })
+
+  $.fn.sortable = generic(Sortable, 'sortable', {
+    accept: '*',
+    activeClass: '',
+    cancel: 'input, textarea, button, select, option',
+    connectWith: false,
+    disabled: false,
+    forcePlaceholderSize: false,
+    handle: false,
+    initialized: false,
+    items: 'li, div',
+    placeholder: 'placeholder',
+    placeholderTag: null,
+    updateHandler: null,
+    receiveHandler: null
+  })
+})(window.Zepto || window.jQuery);</script>
+<style>
+ul {
+margin: 0 0 80px;
+}
+ul.grid li {
+  list-style-type: none;
+  margin: 0;
+  padding: 5;
+  
+  /* prevent text selection */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}  
+
+
+ul.grid li {
+  margin: 3px 3px 3px 0;
+  padding: 1px;
+  width: 80px;
+  float: left;
+  font-size: 3em;
+  text-align: center;
+  cursor: pointer;
+  font-family: arial;
+  //background-color: rgb(0,100,155);
+  background-color: rgb(0,128,255);
+  color: white;
+  
+}
+ul.grid li {
+    float: left;
+    height: 75px;
+
+}
+ul.list li, ul.grid li {
+    border: 1px solid #DCDBDD;
+    margin: 2px;
+    padding: 2px 5px;
+    //background-color: #F6F5F7;
+	background-color: #0080FF;
+    box-sizing: border-box;
+    vertical-align: top;
+}
+    .si-wrapper {
+	display: inline-block;
+	position: relative;
+}
+
+.speech-input {
+	margin: 0;
+}
+
+.si-wrapper button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	height: 18px;
+	width: 18px;
+	margin: 0;
+	border: 0;
+	padding: 0;
+	background: none;
+	font: 0/0 a;
+}
+
+.si-mic,
+.si-mic:after,
+.si-holder,
+.si-holder:before,
+.si-holder:after {
+	position: absolute;
+	background: #333;
+}
+
+/* Microphone icon */
+.si-mic {
+	display: block;
+	height: 25%; /* 8px / 32px */
+	top: 9.375%; /* 3px / 32px */
+	left: 37.5%; /* 12px / 32px */
+	right: 37.5%; /* 12px / 32px */
+	-webkit-border-radius: 99px 99px 0 0;
+	-moz-border-radius: 99px 99px 0 0;
+	border-radius: 99px 99px 0 0;
+}
+
+.si-mic:before,
+.si-mic:after,
+.si-holder {
+	-webkit-border-radius: 0 0 99px 99px;
+	-moz-border-radius: 0 0 99px 99px;
+	border-radius: 0 0 99px 99px;
+}
+
+.si-mic:before {
+	position: absolute;
+	z-index: 1;
+	content: '';
+	width: 150%; /* 12px / 8px */
+	height: 137.5%; /* 11px / 8px */
+	top: 100%; /* 8px / 8px */
+	left: -25%; /* -2px / 8px */
+	background: #fff;
+}
+
+.si-mic:after {
+	z-index: 1;
+	content: '';
+	width: 100%; /* 10px / 10px */
+	height: 100%; /* 10px / 10px */
+	top: 110%; /* 11px / 10px */
+	left: 0;
+}
+
+.si-holder {
+	display: block;
+	height: 40.625%; /* 13px / 32px */
+	width: 50%; /* 16px / 32px */
+	left: 25%; /* 8px / 32px */
+	top: 37.5%; /* 12px / 32px */
+}
+
+.si-holder:after {
+	content: '';
+	width: 66.666%; /* 8px / 16px */
+	height: 18.182%; /* 2px / 13px */
+	bottom: -30.769%; /* -4px / 13px */
+	left: 16.667%; /* 2px / 16px */
+}
+
+.si-holder:before {
+	content: '';
+	width: 33.333%; /* 4px / 16px */
+	height: 27.273%; /* 3px / 13px */
+	top: 92.308%; /* 12px / 13px */
+	left: 33.333%; /* 4px / 16px */
+}
+</style>
+<script>
+!function(a){"use strict";function q(a,b){this.prepend=a,this.append=b}function r(a,b){this.name=a,this.language=b}function s(){for(var a=speechSynthesis.getVoices(),b=0;b<a.length;b++)p.push(new r(a[b].name,a[b].lang))}var i,j,k,l,b=new Array,c=new Array,d=new Array,e=new Array,f=1.1,g=1,h=1,m=f,n=g,o=h,p=new Array;if(s(),"undefined"!=typeof speechSynthesis&&void 0!==speechSynthesis.onvoiceschanged&&(speechSynthesis.onvoiceschanged=s),"speechSynthesis"in window){var t=new SpeechSynthesisUtterance;window.speechSynthesis.cancel()}var u=/chrome/i.test(navigator.userAgent),v=/edge/i.test(navigator.userAgent),w=u&&!v,x={speak:function(p){function A(a){var d,f;if(c.length>0)for(var g in c){var h=z.indexOf(c[g]);h>-1&&z.splice(h,1)}for(var g in z)jQuery(a).find(z[g]).addBack(z[g]).not("[data-articulate-recognize]").each(function(){jQuery(this).html("")});if(b.length>0)for(var g in b)jQuery(a).find(b[g]).addBack(b[g]).not("[data-articulate-recognize]").each(function(){jQuery(this).html("")});jQuery(a).find("[data-articulate-ignore]").addBack("[data-articulate-ignore]").each(function(){jQuery(this).html("")}),jQuery(a).find("[data-articulate-prepend]").addBack("[data-articulate-prepend]").each(function(){d=jQuery(this).data("articulate-prepend"),jQuery(this).prepend(d+" ")}),jQuery(a).find("[data-articulate-append]").addBack("[data-articulate-append]").each(function(){d=jQuery(this).data("articulate-append"),jQuery(this).append(" "+d)});var i=0;for(var j in y)i++,i<=4&&jQuery(a).find(j).each(function(){e[j]?(jQuery(this).prepend(e[j].prepend+" "),jQuery(this).append(" "+e[j].append)):(jQuery(this).prepend(y[j].prepend+" "),jQuery(this).append(" "+y[j].append))});return jQuery(a).find("h1,h2,h3,h4,h5,h6,li,p").addBack("h1,h2,h3,h4,h5,h6,li,p").each(function(){jQuery(this).append(". ")}),jQuery(a).find("br").each(function(){jQuery(this).after(", ")}),jQuery(a).find("figure").addBack("figure").each(function(){d=jQuery(this).find("figcaption").html(),f=e.figure?e.figure.prepend:y.figure.prepend,void 0!=d&&""!==d&&jQuery("<div>"+f+" "+d+".</div>").insertBefore(this),jQuery(this).remove()}),jQuery(a).find("img").addBack("img").each(function(){d=jQuery(this).attr("alt");var a=jQuery(this).parent(),b=a.get(0).tagName;if(f=e.img?e.img.prepend:y.img.prepend,void 0!==d&&""!=d)if("PICTURE"==b){jQuery("<div>"+f+" "+d+".</div>").insertBefore(a)}else jQuery("<div>"+f+" "+d+".</div>").insertBefore(this);jQuery(this).remove()}),jQuery(a).find("table").addBack("table").each(function(){d=jQuery(this).find("caption").text(),f=e.table?e.table.prepend:y.table.prepend,void 0!==d&&""!=d&&jQuery("<div>"+f+" "+d+".</div>").insertBefore(this),jQuery(this).remove()}),jQuery(a).find("[data-articulate-swap]").addBack("[data-articulate-swap]").each(function(){d=jQuery(this).data("articulate-swap"),jQuery(this).text(d)}),jQuery(a).find("[data-articulate-spell]").addBack("[data-articulate-spell]").each(function(){d=jQuery(this).text(),d=d.split("").join(" "),jQuery(this).text(d)}),a}function B(a){for(var b,c,f,g,h,a;a.indexOf("<!-- <articulate>")!=-1&&(b=a.indexOf("<!-- <articulate>"),c=a.indexOf("</articulate> -->",b),c!=-1);)f=a.substring(b+17,c),g=a.substring(0,b),h=a.substring(c+17),a=g+" "+f+" "+h;a=a.replace(/<!--[\s\S]*?-->/g,""),a=a.replace(/(<([^>]+)>)/gi,"");for(var k,l,i=d.length,j=0;j<i;){k=d[j],k=k.replace(/[-[\]{}()*+?.,\\^$|#\s]/g,"\\$&"),l=d[j+1]+" ";var m=new RegExp(k,"gi"),a=a.replace(m,l);j+=2}e.q?(a=a.replace(/“/g,e.q.prepend+" "),a=a.replace(/”/g," "+e.q.append)):(a=a.replace(/“/g,y.q.prepend+" "),a=a.replace(/”/g," "+y.q.append)),a=a.replace(/—/g,", "),a=a.replace(/--/g,", ");var n=document.createElement("textarea");return n.innerHTML=a,a=n.value,a=a.replace(/(\r\n|\n|\r)/gm,""),a=a.replace(/  +/g," "),a=a.replace(/\.\./g,"."),a=a.replace(/,,/g,","),a=a.replace(/ ,/g,",")}var u,v,x,s=(a.extend({},a.fn.articulate.defaults,p),""),y=new Array;y.q=new q("quote,",", unquote,"),y.ol=new q("Start of list.","End of list."),y.ul=new q("Start of list.","End of list."),y.blockquote=new q("Blockquote start.","Blockquote end."),y.img=new q("There's an embedded image with the description,",""),y.table=new q("There's an embedded table with the caption,",""),y.figure=new q("There's an embedded figure with the caption,","");var z=["audio","button","canvas","code","del","dialog","dl","embed","form","head","iframe","meter","nav","noscript","object","s","script","select","style","textarea","video"];return"speechSynthesis"in window?window.speechSynthesis.speaking?void 0:(this.each(function(){u=a(this).clone(),v=A(u),v=jQuery(v).html(),x=B(v),s=s+" "+x}),m=void 0!==i?i:f,n=void 0!==j?j:g,o=void 0!==k?k:h,t=new SpeechSynthesisUtterance,t.text=s,t.rate=m,t.pitch=n,t.volume=o,w&&(t.voice=speechSynthesis.getVoices().filter(function(a){return"native"==a.name})[0]),void 0!==l&&(t.voice=speechSynthesis.getVoices().filter(function(a){return a.name==l})[0]),window.speechSynthesis.speak(t),this):void alert("Sorry, this browser does not support the Web Speech API.")},pause:function(){return window.speechSynthesis.pause(),this},resume:function(){return window.speechSynthesis.resume(),this},stop:function(){return window.speechSynthesis.cancel(),this},enabled:function(){return"speechSynthesis"in window},isSpeaking:function(){return window.speechSynthesis.speaking},isPaused:function(){return window.speechSynthesis.paused},rate:function(){var a=arguments[0];return a>=.1&&a<=10?i=a:void 0===a&&(i=void 0,m=f),this},pitch:function(){var a=arguments[0];return a>=.1&&a<=2?j=a:void 0===a&&(j=void 0,n=g),this},volume:function(){var a=arguments[0];return a>=0&&a<=1?k=a:void 0===a&&(k=void 0,o=h),this},ignore:function(){var a=arguments.length;for(b.length=0;a>0;)a--,b.push(arguments[a]);return this},recognize:function(){var a=arguments.length;for(c.length=0;a>0;)a--,c.push(arguments[a]);return this},replace:function(){var a=arguments.length;d.length=0;for(var b=0;b<a&&(d.push(arguments[b],arguments[b+1]),b+=2,a-b!=1););return this},customize:function(){var a=arguments.length;if(0==a&&(e=[]),2==a){if(["img","table","figure"].indexOf(arguments[0])==-1)return void console.log("Error: When customizing, tag indicated must be either 'img', 'table', or 'figure'.");e[arguments[0].toString()]=new q(arguments[1].toString())}if(3==a){if(["q","ol","ul","blockquote"].indexOf(arguments[0])==-1)return void console.log("Error: When customizing, tag indicated must be either 'q', 'ol', 'ul' or 'blockquote'.");e[arguments[0].toString()]=new q(arguments[1].toString(),arguments[2].toString())}return this},getVoices:function(){if(0==arguments.length)return p;var a=jQuery(arguments[0]),b="Choose a Different Voice";void 0!==arguments[1]&&(b=arguments[1]),a.append(jQuery("<select id='voiceSelect'><option value='none'>"+b+"</option></select>"));for(var c=0;c<p.length;c++){var d=document.createElement("option");d.textContent=p[c].name+" ("+p[c].language+")",d.setAttribute("value",p[c].name),d.setAttribute("data-articulate-language",p[c].language),a.find("select").append(d)}return a.on("change",function(){jQuery(this).find("option:selected").each(function(){"none"!=jQuery(this).val()&&(l=jQuery(this).val())})}),this},setVoice:function(){if(arguments.length<2)return this;var a,b;if("name"==arguments[0]){a=arguments[1];for(var c=0;c<p.length;c++)p[c].name==a&&(l=a)}if("language"==arguments[0])if(b=arguments[1].toUpperCase(),2==b.length){for(var c=0;c<p.length;c++)if(p[c].language.substring(0,2).toUpperCase()==b){l=p[c].name;break}}else for(var c=0;c<p.length;c++)if(p[c].language==b){l=p[c].name;break}return this}};a.fn.articulate=function(a){return x[a]?x[a].apply(this,Array.prototype.slice.call(arguments,1)):"object"!=typeof a&&a?void jQuery.error("Method "+a+" does not exist on jQuery.articulate"):x.speak.apply(this,arguments)}}(jQuery);
+</script>
+<script>
+var current_page = 1;
+var records_per_page = 1;
+if (typeof getUrlVars()["words"] !== 'undefined') {
+	var gamewords = getUrlVars()["words"].split(",");
+} else {
+	var gamewords = "go,to,settings";
+}
+shuffle(gamewords);
+
+$(function() {
+
+
+
+ $.fn.myfunction = function(object, args) {
+  $(object).sortable();
+  $(object).disableSelection();
+     $().articulate('setVoice','name','Chrome OS US English');
+
+  //$().articulate('setVoice','name','Google UK English Female');
+
+  groups = $('#groups').val();
+ // var groups = getUrlVars()["groups"];
+   
+     
+  var regex2 = new RegExp(groups);
+  const word = args;
+  let d_word = word.split(regex2).filter(function(entry) { return entry.trim() != ''; });
+	
+console.log(d_word);
+  //shuffle(d_word);
+  
+var test = /^(.)\1+$/.test(word);
+
+  if(d_word.length > 1 && test == false){
+  while (d_word.join('') == word) {
+  shuffle(d_word);
+  }
+  }
+
+  const lis = [];
+  for (let i = 0; i < d_word.length; i++) {
+  //console.log(d_word[i+1]);
+    lis.push('<li style="width: '+ 50 * d_word[i].length +'px; background-color:'+ rainbow(29,letterValue(d_word[i])) +';">' + d_word[i] + '</li>')
+  }
+
+  $(object).html(lis.join(''));
+
+  $(object).sortable()
+.on('sortable:update', function(e, ui) {
+      setTimeout(() => {
+      let r_word = '';
+      $(object+'>li').each(function(e) {
+        r_word += $(this).text();
+      });
+      if (r_word == word) {
+        console.log("YOU FOUND IT! : " + r_word);
+		$(object).append('<p id="success">Great Job! &#x263A;</p>');
+      } else {
+        $(object+' > #success').remove();
+        console.log("Keep trying!");
+
+      }
+    }, 0)});
+};
+
+$(document).on('click', '#speak', function(){ 
+    var text = $(this).data('text');
+    console.log('CHECKHERE------'+$(this).data('text')+'===='+$(this).data('data-text'));
+	console.log($().articulate('getVoices'));
+    $('#'+text).articulate('pitch',$('#pitch').val()).articulate('rate',$('#rate').val()).articulate('speak');
+});
+
+$(document).on('click', '#generate', function(){ 
+$('#game').empty();
+//var wds = getUrlVars()["words"];
+array = $('#words').val().split(",");
+//array = wds.split(",");
+  
+shuffle(array);
+    
+
+$.each(array, function( index, value ) {
+//  value = value.replace(/\+/g, '\\\\+');
+
+var mapObj = {
+   '*':" times ",
+   '=':" equals ",
+   '-':" minus ",
+   '+':" plus ",
+   '/':" divided by "
+};
+
+var strnumber = value.replace(/\*|\=|\-|\+|\//gi, function(matched){
+  return mapObj[matched];
+});
+
+	$('#game').append((index+1)+'.<button id="speak" data-text="'+strnumber.replace(/\s+/g, '')+'">&#x1f50a;</button><ul data-articulate-swap="'+strnumber+'" class="grid wide" id="'+strnumber.replace(/\s+/g, '')+'"></ul>');
+	$('#'+strnumber.replace(/\s+/g, '')).myfunction('#'+strnumber.replace(/\s+/g, ''),value)
+});
+});
+
+});
+
+function hashCode(str) {
+  let hash = 0;
+    if (str.length < 2) {
+        if (str == "s"){
+            str = str+"z";
+        }
+        str = str+"a";
+    }
+  for (var i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return hash;
+}
+
+function pickColor(str) {
+  // Note the last value here is now 50% instead of 80%
+  return `hsl(${hashCode(str) % 360}, 100%, 50%)`;
+}
+    
+function letterValue(str){
+    var anum={
+        a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10, k: 11, 
+        l: 12, m: 13, n: 14,o: 15, p: 16, q: 17, r: 18, s: 19, t: 20, 
+        u: 21, v: 22, w: 23, x: 24, y: 25, z: 26, 1: 1070, 2: 1580, 3: 4900,
+        4: 690, 5: 410, 6: 220, 7: 6300, 8: 740, 9: 850, 0: 960, '+': 370, '*': 380, '-': 390,
+        '/': 400, '=': 410
+    }
+    if(str.length== 1) return anum[str] || ' ';
+    return str.split('').map(letterValue);
+}
+    
+function rainbow(numOfSteps, step) {
+    var r, g, b;
+    var h = step / numOfSteps;
+    var i = ~~(h * 6);
+    var f = h * 6 - i;
+    var q = 1 - f;
+    switch(i % 6){
+        case 0: r = 1; g = f; b = 0; break;
+        case 1: r = q; g = 1; b = 0; break;
+        case 2: r = 0; g = 1; b = f; break;
+        case 3: r = 0; g = q; b = 1; break;
+        case 4: r = f; g = 0; b = 1; break;
+        case 5: r = 1; g = 0; b = q; break;
+    }
+    var c = "#" + ("00" + (~ ~(r * 255)).toString(16)).slice(-2) + ("00" + (~ ~(g * 255)).toString(16)).slice(-2) + ("00" + (~ ~(b * 255)).toString(16)).slice(-2);
+    return (c);
+}
+
+ function shuffle(a, b, c, d) {
+  c = a.length;
+  while (c) b = Math.random() * (--c + 1) | 0, d = a[c], a[c] = a[b], a[b] = d
+}
+function show() {
+    var x = document.getElementById("parents");
+    if (x.style.display === "none") {
+        x.style.display = "block";
+    } else {
+        x.style.display = "none";
+    }
+}
+function update(obj,value) {
+  var n = parseFloat(value).toFixed(1)
+  $(obj).parent().find('span').text(n);
+};
+    
+function getUrlVars() {
+    var vars = {};
+    var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) {
+        vars[key] = value;
+    });
+    return vars;
+}
+
+function replaceUrlParam(url, paramName, paramValue)
+{
+    if (paramValue == null) {
+        paramValue = '';
+    }
+    var pattern = new RegExp('\\b('+paramName+'=).*?(&|#|$)');
+    if (url.search(pattern)>=0) {
+        return url.replace(pattern,'$1' + paramValue + '$2');
+    }
+    url = url.replace(/[?#]$/,'');
+    return url + (url.indexOf('?')>0 ? '&' : '?') + paramName + '=' + paramValue;
+}
+//window.onload = function() {
+  //  changePage(1);
+//};
+</script>
+</head>
+<body>	
+<button onclick="show()" style="position: absolute;right: 0px;">Settings</button>
+<div id="parents">
+<!--
+    <div id="listingTable"></div>
+<a href="javascript:prevPage()" id="btn_prev">Prev</a>
+<a href="javascript:nextPage()" id="btn_next">Next</a>
+page: <span id="page"></span>
+-->    
+    
+<p>Enter words separated by comma's with no spaces<input id="words" value="cat,hat" type="text"/></p>
+
+<p>Regex for matching letters<input id="groups" type="text" value="(\w)"/></p>
+<div>
+        <label for="rate">Rate</label>
+        <input type="range" min="0.1" max="10" step="0.1" name="rate" id="rate" value=".4" oninput="update(this,value)">
+    <span class="val">1.1</span>
+    </div>
+    <div>
+        <label for="pitch">Pitch</label>
+        <input type="range" min="0.1" max="2" step="0.1" name="pitch" id="pitch" value="1" oninput="update(this,value)">
+    <span class="val">1.0</span>
+    </div>
+
+<input type="text" class="speech-input" placeholder="hello" data-ready="Say Hello" name="spa-input" lang="en" data-patience="2">
+<button id="generate">Generate</button>
+        <script>
+    /*global webkitSpeechRecognition */
+(function() {
+	'use strict';
+
+	// check for support (webkit only)
+	if (!('webkitSpeechRecognition' in window)) return;
+
+	var talkMsg = 'Speak now';
+	// seconds to wait for more input after last
+  	var defaultPatienceThreshold = 6;
+
+	function capitalize(str) {
+		return str.charAt(0).toUpperCase() + str.slice(1);
+	}
+
+	var inputEls = document.getElementsByClassName('speech-input');
+
+	[].forEach.call(inputEls, function(inputEl) {
+		var patience = parseInt(inputEl.dataset.patience, 10) || defaultPatienceThreshold;
+		var micBtn, micIcon, holderIcon, newWrapper;
+		var shouldCapitalize = true;
+
+		// gather inputEl data
+		var nextNode = inputEl.nextSibling;
+		var parent = inputEl.parentNode;
+		var inputRightBorder = parseInt(getComputedStyle(inputEl).borderRightWidth, 10);
+		var buttonSize = 0.8 * (inputEl.dataset.buttonsize || inputEl.offsetHeight);
+
+		// default max size for textareas
+		if (!inputEl.dataset.buttonsize && inputEl.tagName === 'TEXTAREA' && buttonSize > 26) {
+			buttonSize = 26;
+		}
+
+		// create wrapper if not present
+		var wrapper = inputEl.parentNode;
+		if (!wrapper.classList.contains('si-wrapper')) {
+			wrapper = document.createElement('div');
+			wrapper.classList.add('si-wrapper');
+			wrapper.appendChild(parent.removeChild(inputEl));
+			newWrapper = true;
+		}
+
+		// create mic button if not present
+		micBtn = wrapper.querySelector('.si-btn');
+		if (!micBtn) {
+			micBtn = document.createElement('button');
+			micBtn.type = 'button';
+			micBtn.classList.add('si-btn');
+			micBtn.textContent = 'speech input';
+			micIcon = document.createElement('span');
+			holderIcon = document.createElement('span');
+			micIcon.classList.add('si-mic');
+			holderIcon.classList.add('si-holder');
+			micBtn.appendChild(micIcon);
+			micBtn.appendChild(holderIcon);
+			wrapper.appendChild(micBtn);
+
+			// size and position mic and input
+			micBtn.style.cursor = 'pointer';
+			micBtn.style.top = 0.125 * buttonSize + 'px';
+			micBtn.style.height = micBtn.style.width = buttonSize + 'px';
+			inputEl.style.paddingRight = buttonSize - inputRightBorder + 'px';
+		}
+
+		// append wrapper where input was
+		if (newWrapper) parent.insertBefore(wrapper, nextNode);
+
+		// setup recognition
+		var prefix = '';
+		var isSentence;
+		var recognizing = false;
+		var timeout;
+		var oldPlaceholder = null;
+		var recognition = new webkitSpeechRecognition();
+		recognition.continuous = true;
+		recognition.interimResults = true;
+
+		// if lang attribute is set on field use that
+		// (defaults to use the lang of the root element)
+		if (inputEl.lang) recognition.lang = inputEl.lang;
+
+		function restartTimer() {
+			timeout = setTimeout(function() {
+				recognition.stop();
+			}, patience * 1000);
+		}
+
+		recognition.onstart = function() {
+			oldPlaceholder = inputEl.placeholder;
+			inputEl.placeholder = inputEl.dataset.ready || talkMsg;
+			recognizing = true;
+			micBtn.classList.add('listening');
+			restartTimer();
+		};
+
+		recognition.onend = function() {
+			recognizing = false;
+			clearTimeout(timeout);
+			micBtn.classList.remove('listening');
+			if (oldPlaceholder !== null) inputEl.placeholder = oldPlaceholder;
+
+			// If the <input> has data-instant-submit and a value,
+			if (inputEl.dataset.instantSubmit !== undefined && inputEl.value) {
+				// submit the form it's in (if it is in one).
+				if (inputEl.form) inputEl.form.submit();
+			}
+		};
+
+		recognition.onresult = function(event) {
+			clearTimeout(timeout);
+
+			// get SpeechRecognitionResultList object
+			var resultList = event.results;
+
+			// go through each SpeechRecognitionResult object in the list
+			var finalTranscript = '';
+			var interimTranscript = '';
+			for (var i = event.resultIndex; i < resultList.length; ++i) {
+				var result = resultList[i];
+
+				// get this result's first SpeechRecognitionAlternative object
+				var firstAlternative = result[0];
+
+				if (result.isFinal) {
+					finalTranscript = firstAlternative.transcript;
+				} else {
+					interimTranscript += firstAlternative.transcript;
+				}
+			}
+
+			// capitalize transcript if start of new sentence
+			var transcript = finalTranscript || interimTranscript;
+			transcript = !prefix || isSentence ? capitalize(transcript) : transcript;
+
+			// append transcript to cached input value
+			inputEl.value = prefix + transcript;
+
+			// set cursur and scroll to end
+			inputEl.focus();
+			if (inputEl.tagName === 'INPUT') {
+				inputEl.scrollLeft = inputEl.scrollWidth;
+			} else {
+				inputEl.scrollTop = inputEl.scrollHeight;
+			}
+
+			restartTimer();
+		};
+
+		micBtn.addEventListener('click', function(event) {
+			event.preventDefault();
+
+			// stop and exit if already going
+			if (recognizing) {
+				recognition.stop();
+				return;
+			}
+
+			// Cache current input value which the new transcript will be appended to
+			var endsWithWhitespace = inputEl.value.slice(-1).match(/\s/);
+			prefix = !inputEl.value || endsWithWhitespace ? inputEl.value : inputEl.value + ' ';
+
+			// check if value ends with a sentence
+			isSentence = prefix.trim().slice(-1).match(/[\.\?\!]/);
+
+			// restart recognition
+			recognition.start();
+		}, false);
+	});
+})();
+    </script>   
+</div>
+<div id="game">
+</div>
+
+<script>
+
+
+</script>
+</body>
+</html>
