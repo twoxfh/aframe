@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>VR Instruments - Drums</title>
+	<meta http-equiv="X-UA-Compatible" content="requiresActiveX=true" />
+	<script src="https://aframe.io/releases/1.0.3/aframe.min.js"></script>
+
+	<script src="https://lib.wonderleap.co/releases/0.1.1/wonderleap.js">
+	</script>
+
+	<script src="https://unpkg.com/aframe-aabb-collider-component@3.1.0/dist/aframe-aabb-collider-component.min.js">
+	</script>
+	<script src="https://supereggbert.github.io/aframe-htmlembed-component/dist/build.js">
+	</script>
+	<script src="https://unpkg.com/aframe-haptics-component/dist/aframe-haptics-component.min.js">
+	</script>
+
+  <script src="js/last-position.js"></script>
+
+		<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-149520757-1">
+	</script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-149520757-1');
+
+	</script>
+
+</head>
+
+<style>
+	.instruments {
+		background-color: #4B9CA6;
+		border: solid #307982 3px;
+		border-radius: 20px;
+		color: white;
+		padding: 2px;
+		margin: 2px;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+		min-width: 30px;
+		min-height: 30px;
+	}
+
+	.instruments:active {
+		background-color: #174146;
+		border: solid #0F2C2F 3px;
+	}
+
+	.instruments:hover {
+		background-color: #215C63;
+		border: solid #307982 3px;
+	}
+
+  .artists {
+		background-color: #4B9CA6;
+		border: solid #307982 3px;
+		border-radius: 20px;
+		color: white;
+		padding: 2px;
+		margin: 2px;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+	}
+
+	.artists:active {
+		background-color: #174146;
+		border: solid #0F2C2F 3px;
+	}
+
+	.artists:hover {
+		background-color: #215C63;
+		border: solid #307982 3px;
+	}
+
+	.ui {
+		background-color: #6937A2;
+		border: solid #6937A2 3px;
+		border-radius: 4px;
+		color: white;
+		padding: 5px;
+		margin: 2px;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+	}
+
+	.ui:active {
+		background-color: #613494;
+		border: solid #391D58 3px;
+	}
+
+	.ui:hover {
+		background-color: #4A2672;
+		border: solid #201032 3px;
+	}
+
+  .colors {
+		background-color: #DDDDDD;
+		border: solid #888888 1px;
+		border-radius: 20px;
+		color: white;
+		box-shadow: 1px 1px 1px black;
+		text-shadow: 1px 1px 1px black;
+    width:10px;
+    height:10px;
+	}
+
+	.colors:active {
+		background-color: #EEEEEE;
+		border: solid #999999 3px;
+	}
+
+	.colors:hover {
+		background-color: #FFFFFF;
+		border: solid #AAAAAA 3px;
+	}
+
+
+	.small {
+		width: 200px;
+	}
+
+	.medium {
+		width: 500px;
+	}
+
+	.large {
+		width: 1200px;
+	}
+
+	h1 {
+		font-size: 16px;
+		font-family: sans-serif;
+		color: white;
+		padding: 0px;
+		margin: 0px;
+	}
+
+	h2 {
+		font-size: 12px;
+		font-family: sans-serif;
+		color: white;
+		padding: 0px;
+		margin: 0px;
+	}
+
+  .inliner {
+    display:inline-block;
+  }
+
+  ul{
+		font-size: 8px;
+		font-family: sans-serif;
+		color: white;
+		padding: 0px;
+		margin: 0px;
+  }
+
+  li{
+		padding: 0px;
+		margin: 0px;
+  }
+</style>
+
+<body>
+	<a-scene cursor="rayOrigin:mouse" renderer="antialias: true;
+                   colorManagement: true;
+                   sortObjects: true;
+                   physicallyCorrectLights: true;">
+
+    <a-assets>
+
+      <!--3D MODEL-->
+      <a-asset-item id="playa" src="assets/models/CHAHIN_ISLAND.gltf"></a-asset-item>
+
+      <!-- SOUNDS -->
+      <audio id="crash" src="assets/sounds/crash.mp3"></audio>
+      <audio id="floortom" src="assets/sounds/floortom.mp3"></audio>
+      <audio id="hat-closed" src="assets/sounds/hat-closed.mp3"></audio>
+      <audio id="hat-foot" src="assets/sounds/hat-foot.mp3"></audio>
+      <audio id="hat-open" src="assets/sounds/hat-open.mp3"></audio>
+      <audio id="hat-semi" src="assets/sounds/hat-semi.mp3"></audio>
+      <audio id="hitom" src="assets/sounds/hitom.mp3"></audio>
+      <audio id="kick-1" src="assets/sounds/kick-1.mp3"></audio>
+      <audio id="kick-2" src="assets/sounds/kick-2.mp3"></audio>
+      <audio id="kick-3" src="assets/sounds/kick-3.mp3"></audio>
+      <audio id="kick-4" src="assets/sounds/kick-4.mp3"></audio>
+      <audio id="midtom1" src="assets/sounds/midtom1.mp3"></audio>
+      <audio id="midtom2" src="assets/sounds/midtom2.mp3"></audio>
+      <audio id="ride-bell" src="assets/sounds/ride-bell.mp3"></audio>
+      <audio id="ride-regular" src="assets/sounds/ride-regular.mp3"></audio>
+      <audio id="snare-inner" src="assets/sounds/snare-inner.mp3"></audio>
+      <audio id="snare-outer" src="assets/sounds/snare-outer.mp3"></audio>
+      <audio id="snare-rim" src="assets/sounds/snare-rim.mp3"></audio>
+      <audio id="thintom" src="assets/sounds/thintom.mp3"></audio>
+
+    </a-assets>
+    
+
+
+    <a-entity gltf-model="#playa"></a-entity>
+    <a-text value="Model: Island - By Google Poly" color="#362204" rotation="0 0 90" position="-1.378 -0.18 -8.419"></a-text>
+
+    <a-sky color="#9999FF"></a-sky>
+    <a-plane material="shader:flat;src:assets/instrucciones.png" position="1.5 2 -1.182" rotation="0 -45 0"></a-plane>
+
+		<a-entity id="rig">
+			<a-entity camera look-controls position="0 1.7 0"></a-entity>
+			<a-entity id="rightHand" laser-controls="hand:right; model:false;" check-velocity raycaster="objects: .screen; far:2;" line="color: white; opacity: 0.1" haptics>
+				<a-text color="white" id="debug" scale=".1 .1 .1"></a-text>
+        <a-text color="white" align="center" id="rightText" scale=".1 .1 .1" position="0 0 -.1"></a-text>
+			</a-entity>
+
+			<a-entity id="leftHand" laser-controls="hand:left; model:false;" check-velocity raycaster="far:0; near:0;" line="color: white; opacity: 0.1" haptics>
+        
+        <a-text color="white" align="center" id="leftText" scale=".1 .1 .1" position="0 0 -.1"></a-text>
+				<a-entity htmlembed position="0 0 .133" class="screen" scale=".2 .2 .2" rotation="-90 180 180">
+					<div style="font-family: sans-serif;text-align: center" class="medium">
+						<h4 style="color:white">Length</h4>
+
+				<button class="ui" onclick="heightChanger(-.05);" >--</button>
+        <button class="ui" onclick="heightChanger(-.01);" >-</button>
+			  <button class="ui" onclick="resetHeight();">Reset</button>
+			  <button class="ui" onclick="heightChanger(.01);" >+</button>
+			  <button class="ui" onclick="heightChanger(.05);" >++</button>
+        
+		    <h4 style="color:white">Width</h4>
+        <button class="ui" onclick="radiusChanger(-.01);" >--</button>
+        <button class="ui" onclick="radiusChanger(-.005);" >-</button>
+			  <button class="ui" onclick="resetRadius();" >Reset</button>
+			  <button class="ui" onclick="radiusChanger(+.005);" >+</button>
+			  <button class="ui" onclick="radiusChanger(+.01);" >++</button>
+
+			</div>
+
+		  </a-entity>
+
+			</a-entity>
+		</a-entity>
+    <a-ocean scale="10 10 1" position="0 -2 0"></a-ocean>
+    
+    <a-entity id="wonderAd" scale="1 1 1" rotation="0 45 0" wonder-ad="auId: 27813cf8-f984-48c6-b002-ddb9cc31b5f6" position="-1.5 2 -1.182"></a-entity>
+
+
+   <a-entity position="0 0.4 -.5" id="drums">
+
+    <a-entity id="bass" rotation="90 0 0" position="0 0 -0.5"
+    animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+      
+      <!--a-cylinder class="note" radius=".61" height=".05" position="0 .23 0" color="#FF00FF" opacity="0" segments-height="1" segments-radial="6"></a-cylinder-->
+
+      <a-cylinder radius=".61" height=".5" color="#FF69B4"></a-cylinder>
+      <a-cylinder id="bassdrum" radius=".6" height=".51" color="white">
+        
+        <a-sound></a-sound>
+      </a-cylinder>
+      <a-torus color="#999999" rotation="90 0 0" radius=".6" position="0 0.25 0" radius-tubular=".01"></a-torus>
+      <a-torus color="#999999" rotation="90 0 0" radius=".6" position="0 -0.25 0" radius-tubular=".01"></a-torus>
+    </a-entity>
+
+    <a-entity id="snare" position="-0.625 0.552 0.139"
+    animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+
+      <a-cylinder class="note" note="snare-outer" radius=".18" height=".21" color="#FF00FF" opacity="0">
+        <a-sound></a-sound>
+      </a-cylinder>
+
+      <a-cylinder radius=".19" height=".2" color="#FFFF00"></a-cylinder>
+      <a-cylinder radius=".18" height=".21" color="white"></a-cylinder>
+
+      <a-torus color="#999999" rotation="90 0 0" radius=".19" position="0 0.1 0" radius-tubular=".005"></a-torus>
+      <a-torus color="#999999" rotation="90 0 0" radius=".19" position="0 -0.1 0" radius-tubular=".005"></a-torus>
+    </a-entity>
+
+    <a-entity id="hat" position="-0.808 0.701 -0.345"
+    animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+
+      <a-cone id="hatnote" class="note" note="hat" radius-bottom=".3" radius-top=".05" height=".05" color="#FF00FF" opacity="0" position="0 0.1 0">
+        <a-sound></a-sound>
+      </a-cone>
+
+    
+      <a-cone id="upperhat" radius-bottom=".3" radius-top=".05" height=".05" color="white" position="0 0.1 0"
+      animation__close="property:position;to:0 .05 0; startEvents:close;dur:50;easing:linear"
+      animation__open= "property:position;to:0 0.1 0; startEvents:open; dur:50;easing:linear">
+      
+
+      <a-torus radius=".3" rotation="90 0 0" radius-tubular=".005" color="#00FFFF" position="0 -0.025 0"></a-torus>
+      </a-cone>
+      <a-cone radius-bottom=".05" radius-top="0.3" height=".05" color="white">
+        <a-torus radius=".3" rotation="90 0 0" radius-tubular=".005" color="#00FFFF" position="0 0.025 0"></a-torus>
+      </a-cone>
+    </a-entity>
+
+    <a-entity id="hitom" position="-0.259 0.718 -0.244"
+    animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+
+      
+      <a-cylinder class="note" note="hitom" radius=".2" height=".24" color="#FF00FF" opacity="0">
+        <a-sound></a-sound>
+      </a-cylinder>
+
+      <a-cylinder radius=".21" height=".23" color="#00FF00"></a-cylinder>
+      <a-cylinder radius=".2" height=".24" color="white"></a-cylinder>
+      <a-torus color="#999999" rotation="90 0 0" radius=".21" position="0 0.12 0" radius-tubular=".005"></a-torus>
+      <a-torus color="#999999" rotation="90 0 0" radius=".21" position="0 -0.12 0" radius-tubular=".005"></a-torus>
+    </a-entity>
+
+     <a-entity id="midtom1" position="0.258 0.729 -0.229"
+     animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+
+      <a-cylinder class="note" note="midtom1"  radius=".23" height=".25" color="#FF00FF" opacity="0">
+        <a-sound></a-sound>
+      </a-cylinder>
+
+      <a-cylinder radius=".24" height=".24" color="#FF0000"></a-cylinder>
+      <a-cylinder radius=".23" height=".25" color="white"></a-cylinder>
+      <a-torus color="#999999" rotation="90 0 0" radius=".24" position="0 0.125 0" radius-tubular=".005"></a-torus>
+      <a-torus color="#999999" rotation="90 0 0" radius=".24" position="0 -0.125 0" radius-tubular=".005"></a-torus>
+    </a-entity>
+
+    <a-entity id="floortom" position="0.858 0.428 0"
+    animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+      
+      <a-cylinder class="note" note="floortom" radius=".35" height=".37" color="#FF00FF" opacity="0">
+         <a-sound></a-sound>
+      </a-cylinder>
+
+      <a-cylinder radius=".36" height=".36" color="#6a0dad"></a-cylinder>
+      <a-cylinder radius=".35" height=".37" color="white"></a-cylinder>
+      <a-torus color="#999999" rotation="90 0 0" radius=".36" position="0 0.18 0" radius-tubular=".005"></a-torus>
+      <a-torus color="#999999" rotation="90 0 0" radius=".36" position="0 -0.18 0" radius-tubular=".005"></a-torus>
+    </a-entity>
+
+    <a-entity id="crash" position="0.928 0.926 -0.322"
+    animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+      
+      <a-cone class="note" note="crash" radius-bottom=".5" radius-top=".05" height=".05" color="#FF00FF" opacity="0" position="0 0.1 0">
+         <a-sound></a-sound>
+      </a-cone>
+
+      <a-cone radius-bottom=".5" radius-top=".05" height=".05" color="white" position="0 0.1 0">
+      <a-torus radius=".5" rotation="90 0 0" radius-tubular=".005" color="#0000FF" position="0 -0.025 0"></a-torus>
+      </a-cone>
+
+    </a-entity>
+
+    <a-entity id="ride" position="0.928 0.926 0.622"
+    animation__scale="property:scale;to:1 1 1;startEvents:press;dur:200;easing:linear">
+      
+      <a-cone class="note" note="ride-regular" radius-bottom=".5" radius-top=".05" height=".05" color="#FF00FF" opacity="0" position="0 0.1 0">
+         <a-sound></a-sound>
+      </a-cone>
+      <a-sphere class="note" note="ride-bell" color="#FF00FF" opacity="0" radius=".2" phi-length="180" scale="1 1 0.5" position="0 0.1 0" rotation="-90 0 0">
+         <a-sound></a-sound>
+      </a-sphere>
+
+      <a-cone radius-bottom=".5" radius-top=".05" height=".05" color="white" position="0 0.1 0">
+      <a-torus radius=".5" rotation="90 0 0" radius-tubular=".005" color="#0000FF" position="0 -0.025 0"></a-torus>
+      </a-cone>
+
+      <a-sphere color="#0000FF" radius=".2" phi-length="180" scale="1 1 0.5" position="0 0.1 0" rotation="-90 0 0">
+      <a-torus radius=".2" radius-tubular=".005" color="#0000FF" position="0 0 0.03"></a-torus>
+      </a-sphere>
+
+    </a-entity>
+
+  </a-entity>
+
+	</a-scene>
+  
+	<script src="js/mallets.js"></script>
+	<script src="js/noteplayer.js"></script>
+</html>
+</body>
