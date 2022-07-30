@@ -8,4 +8,4 @@ These projects are for the Oculus Quest and manipulate what you see in your left
 |LetterRay|The idea came from bkkl, its letterray experience no longer worked on my Quest, this was an attemp to re-create a similar experience. [Stemkoski](https://github.com/stemkoski/A-Frame-Examples) has a good resource for creating animations in aframe. [Link](https://twoxfh.github.io/aframe/LetterRay/)|
 |MovingBall|A ball moves around the screen, you can adjust settings using the keyboard, ? should open help. [LINK](https://twoxfh.github.io/aframe/MovingBall/)|
 |AlphaLazer|This was taken from an Aframe example and expanded upon. Using a Quest, use your lazers to shoot the current letter being displayed amongst the grid of letters. [LINK](https://twoxfh.github.io/aframe/AlphaLazer/)|
-|Tweaked Physics|This was taken from Aframe Animation Examples by Stemkoski and modified for objects to appear in different eyes. [LINK] (https://twoxfh.github.io/aframe/physx/quest-physics.html)
+|Tweaked Physics|This was taken from Aframe Animation Examples by Stemkoski and modified for objects to appear in different eyes. [LINK](https://twoxfh.github.io/aframe/physx/quest-physics.html)|
