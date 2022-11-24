@@ -438,6 +438,7 @@ Keyboard.add_binding({
     <a-mixin id="blue" material="color: #0000ff"></a-mixin>
     <a-mixin id="cube" geometry="primitive: box; width:.5"></a-mixin>
     <img id="grid" src="border.png" crossorigin="anonymous" />
+    <img id="earth" src="https://ucarecdn.com/0f899a89-9fbd-411c-bce2-4c18558c228b/" crossorigin="anonymous">
   </a-assets>
 
 <a-entity geometry="primitive: box; width:30; height:30;" 
@@ -452,7 +453,7 @@ Keyboard.add_binding({
   id="curve"></a-entity>
 
 <a-entity curve-follow="curveData: #curve; type: spline-curve; duration: 60; loop: true; reverse:false; enabled:true;" id="follow" look-at="[camera]">
-    <a-entity class="box" id="box1" geometry="primitive: sphere; radius: .5;" material="color: red" stereo="eye:right">
+    <a-entity class="box" id="box1" geometry="primitive: sphere; radius: .5;" src="#earth" material="color: red" stereo="eye:right">
 	      <a-animation attribute="rotation" easing="linear" dur="1000" to="0 360 0" repeat="indefinite">
 </a-entity>
     <a-entity class="box" id="box2" geometry="primitive: sphere; radius: .5;" material="color: green" stereo="eye:left">
