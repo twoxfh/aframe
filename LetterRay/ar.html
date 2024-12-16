@@ -1,3 +1,7 @@
+<!--body style="width: 100%; height: 100%; margin: 0; position:absolute;">
+    <div style="width:25%;height:25%;background-color: #00000000;">
+        <img id="video" src="{{ url_for('screenstream') }}"></div></body-->
+
 <html>
   <head>
     <title>360View</title>
@@ -302,9 +306,7 @@ var ui = [
   */{"label": "Left position", "id":"left", "attribute":"position"},
   {"label": "Right position", "id":"right", "attribute":"position"},
   {"label": "Left scale", "id":"left", "attribute":"scale"},
-  {"label": "Right scale", "id":"right", "attribute":"scale"},
-  {"label": "Box position", "id":"box", "attribute":"position"},
-  {"label": "Box rotation", "id":"box", "attribute":"rotation"},
+  {"label": "Right scale", "id":"right", "attribute":"scale"}
 ];
 
   function load(ui) {
