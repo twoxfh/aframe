@@ -1,7 +1,3 @@
-<!--body style="width: 100%; height: 100%; margin: 0; position:absolute;">
-    <div style="width:25%;height:25%;background-color: #00000000;">
-        <img id="video" src="{{ url_for('screenstream') }}"></div></body-->
-
 <html>
   <head>
     <title>360View</title>
@@ -183,6 +179,178 @@ AFRAME.registerComponent('hud-element', {
     }
 });
 
+AFRAME.registerGeometry('stargen', {
+  schema: {
+    vertices: {
+      default: ['-10 10 0', '-10 -10 0', '10 -10 0'],
+    }
+  },
+
+  init: function (data) {
+  var geometry = new THREE.BufferGeometry();
+    var starPoints = [];
+let n = 0;//a counter
+let c = {x:22.5,y:22.5};//the center of the svg canvas
+let step = Math.PI/6;//since the star has 5 points you will need to calculate the position of a point every 36degs i.e Math.PI/5;
+
+//a for loop to calculate the position of the points for the star
+for(let a=-Math.PI/2;  a<3*Math.PI/2; a+= step){
+  //The point will be either on the outer circle (r=22) or on the inner one (r=11)
+  let r = n%2 == 0 ? 22 : 11;
+  //calculate the x and y of the point
+  let x = c.x + r*Math.cos(a);
+  let y = c.y + r*Math.sin(a);
+  starPoints.push(new THREE.Vector2(x, y));
+  n++
+}	 
+	 
+	/* Creates new shape **/
+	var starShape = new THREE.Shape( starPoints );
+	
+	/* Shape Settings **/
+	var extrusionSettings = {
+		size: 30, height: 4, curveSegments: 3,
+		bevelThickness: 1, bevelSize: 2, bevelEnabled: false,
+		material: 0, extrudeMaterial: 1
+	};
+	
+	/* Create new ExtrudeGeometry **/
+	var starGeometry = new THREE.ExtrudeGeometry( starShape, extrusionSettings );     
+     this.geometry = starGeometry;
+  }
+});
+
+function recenterGeometry(geometry) {
+  geometry.computeBoundingBox();
+  const center = new THREE.Vector3();
+
+  center.addVectors(geometry.boundingBox.min, geometry.boundingBox.max);
+  center.multiplyScalar(0.5);
+  geometry.translate(-center.x, -center.y, -center.z)
+  geometry.computeBoundingBox();
+}
+
+AFRAME.registerGeometry('branch', {
+  schema: {
+  },
+
+  init: function (data) {
+    //radiusTop, radiusBottom, height, radialSegments
+    const geometries = []
+    // 3 initial long segments
+    geometries.push(new THREE.CylinderGeometry(0.09, 0.1, 1, 7));
+    geometries.push(new THREE.CylinderGeometry(0.08, 0.09, 1, 7));
+    geometries.push(new THREE.CylinderGeometry(0.07, 0.08, 1, 7));
+    // 3 "fingers" of varying lengths & girths
+    geometries.push(new THREE.CylinderGeometry(0.07, 0.07, 0.5, 7));
+    geometries.push(new THREE.CylinderGeometry(0.06, 0.06, 0.8, 7));
+    geometries.push(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 7));
+
+    // now position these relative to each other.
+    geometries[0].translate(0.14, -0.9, 0);
+    geometries[1].rotateZ(0.3);
+    geometries[2].translate(-0.14, 0.9, 0);
+    geometries[3].translate(0.14, 1.62, 0);
+    geometries[3].rotateZ(0.2);
+    geometries[4].translate(0.4, 1.5, 0);
+    geometries[4].rotateZ(0.5);
+    geometries[5].translate(-0.8, 1.5, 0);
+    geometries[5].rotateZ(-0.5);
+
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+
+    recenterGeometry(this.geometry);
+  }
+});
+
+AFRAME.registerGeometry('tophat', {
+  schema: {
+  },
+
+  init: function (data) {
+    //radiusTop, radiusBottom, height, radialSegments
+    const geometries = [];
+    // 2 cylinders, one tall and thin for the hat, one short and wider for the brim.
+    geometries.push(new THREE.CylinderGeometry(0.25, 0.25, 0.04, 11));
+    geometries.push(new THREE.CylinderGeometry(0.15, 0.15, 0.3, 11));
+    geometries[1].translate(0, 0.15, 0);
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+
+    recenterGeometry(this.geometry);
+  }
+});
+
+AFRAME.registerGeometry('tophat-hollow', {
+  schema: {
+  },
+
+  init: function (data) {
+    //radiusTop, radiusBottom, height, radialSegments
+    const geometries = [];
+
+    const brimShape = new THREE.Shape();
+    brimShape.absarc(0, 0, 0.25, 0, 2 * Math.PI);
+    const brimHole = new THREE.Path();
+    brimHole.absarc(0, 0, 0.15, 0, 2 * Math.PI);
+    brimShape.holes.push(brimHole)
+
+    const brimSettings = {
+      curveSegments: 5,
+    	depth: 0.04,
+    	bevelEnabled: false
+    };
+
+    const topShape = new THREE.Shape();
+    topShape.absarc(0, 0, 0.15, 0, 2 * Math.PI);
+    const topHole = new THREE.Path();
+    topHole.absarc(0, 0, 0.14, 0, 2 * Math.PI);
+    topShape.holes.push(topHole)
+    const topSettings = {
+      curveSegments: 5,
+      depth: 0.3,
+      bevelEnabled: false
+    };
+
+    const capShape = new THREE.Shape();
+    capShape.absarc(0, 0, 0.15, 0, 2 * Math.PI);
+    const capSettings = {
+      curveSegments: 5,
+      depth: 0.04,
+      bevelEnabled: false
+    };
+
+    geometries.push(new THREE.ExtrudeGeometry(brimShape, brimSettings));
+    geometries.push(new THREE.ExtrudeGeometry(topShape, topSettings));
+    geometries.push(new THREE.ExtrudeGeometry(capShape, capSettings));
+    geometries[2].translate(0, 0, 0.3);
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+
+    recenterGeometry(this.geometry);
+    this.geometry.rotateX(-Math.PI/2)
+  }
+});
+
+AFRAME.registerGeometry('icicle', {
+  schema: {
+  },
+
+  init: function (data) {
+
+    const geometries = [];
+    // 3 cylinders, getting gradually pointier
+    //radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded
+    geometries.push(new THREE.CylinderGeometry(0.2, 0.1, 0.25, 9, 1, true));
+    geometries.push(new THREE.CylinderGeometry(0.1, 0.05, 0.25, 9, 1, true));
+    geometries[1].translate(0, -0.25, 0);
+    geometries.push(new THREE.CylinderGeometry(0.05, 0.01, 0.5, 9, 1, true));
+    geometries[2].translate(0, -0.6, 0);
+
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+
+    recenterGeometry(this.geometry);
+  }
+});
+
 AFRAME.registerGeometry('star', {
   schema: {
     points: {default: 5},
@@ -221,6 +389,262 @@ AFRAME.registerGeometry('star', {
   }
 });
 
+AFRAME.registerGeometry('ribbon', {
+  schema: {
+    width: {default: 1},
+    height: {default: 1},
+    depth: {default: 1},
+    ribbon: {default: 0.2},
+  },
+
+  init: function (data) {
+
+    // used to avoid z-fighting.
+    const delta = 0.001
+    const geometries = [];
+
+    // front ribbon
+    geometries.push(new THREE.PlaneGeometry(data.ribbon, data.height));
+    geometries[0].translate(0, 0, data.depth/2 + delta);
+    // back ribbon
+    geometries.push(new THREE.PlaneGeometry(data.ribbon, data.height));
+    geometries[1].rotateY(Math.PI);
+    geometries[1].translate(0, 0, -data.depth/2 - delta);
+    // left ribbon
+    geometries.push(new THREE.PlaneGeometry(data.ribbon, data.height));
+    geometries[2].rotateY(-Math.PI/2);
+    geometries[2].translate(-data.width/2 - delta, 0, 0);
+    // right ribbon
+    geometries.push(new THREE.PlaneGeometry(data.ribbon, data.height));
+    geometries[3].rotateY(Math.PI/2);
+    geometries[3].translate(data.width/2 + delta, 0, 0);
+    // top ribbons
+    geometries.push(new THREE.PlaneGeometry(data.ribbon, data.depth));
+    geometries[4].rotateX(-Math.PI/2);
+    geometries[4].translate(0, data.height/2 + delta, 0);
+    geometries.push(new THREE.PlaneGeometry(data.width, data.ribbon));
+    geometries[5].rotateX(-Math.PI/2);
+    geometries[5].translate(0, data.height/2+ delta, 0);
+
+    // bottom ribbons
+    geometries.push(new THREE.PlaneGeometry(data.ribbon, data.depth));
+    geometries[6].rotateX(Math.PI/2);
+    geometries[6].translate(0, -data.height/2 - delta, 0);
+    geometries.push(new THREE.PlaneGeometry(data.width, data.ribbon));
+    geometries[7].rotateX(Math.PI/2);
+    geometries[7].translate(0, -data.height/2 - delta, 0);
+
+    // rosette
+    geometries.push(new THREE.TorusKnotGeometry(data.ribbon, data.ribbon/4, 30, 3, 7, 11));
+    geometries[8].rotateX(Math.PI/2);
+    geometries[8].translate(0, data.height/2 + data.ribbon/3 + delta, 0);
+
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+
+    // *don't* recenter geometry, as the rosette will ruin the offset vs. a box we
+    // wrap the ribbon around.
+    //recenterGeometry(this.geometry);
+  }
+});
+
+AFRAME.registerGeometry('penguin', {
+  schema: {
+  },
+
+  init: function (data) {
+    //radiusTop, radiusBottom, height, radialSegments
+    const geometriesBlack = [];
+    //head
+    geometriesBlack.push(new THREE.SphereGeometry(1, 8, 6, -7*Math.PI/6, 4*Math.PI/3));
+    //body
+    geometriesBlack.push(new THREE.SphereGeometry(1, 8, 6, -7*Math.PI/6, 4*Math.PI/3));
+    geometriesBlack[1].translate(0, -1, 0);
+    geometriesBlack[1].scale(1, 2, 1);
+    //top of head
+    geometriesBlack.push(new THREE.SphereGeometry(1.0001, 12, 2, 0, 2*Math.PI, 0, Math.PI/3));
+
+    //left wing
+    geometriesBlack.push(new THREE.SphereGeometry(1, 12, 6));
+    geometriesBlack[3].translate(-2.5, -2, 0);
+    geometriesBlack[3].scale(0.3, 1, 0.3)
+    geometriesBlack[3].rotateZ(-0.2)
+
+    //right wing
+    geometriesBlack.push(new THREE.SphereGeometry(1, 12, 6));
+    geometriesBlack[4].translate(2.5, -2, 0);
+    geometriesBlack[4].scale(0.3, 1, 0.3)
+    geometriesBlack[4].rotateZ(0.2)
+
+    // left eye
+    geometriesBlack.push(new THREE.SphereGeometry(0.2, 12, 6));
+    geometriesBlack[5].translate(-0.5, 0.2, 0.75);
+
+    // right eye
+    geometriesBlack.push(new THREE.SphereGeometry(0.2, 12, 6));
+    geometriesBlack[6].translate(0.5, 0.2, 0.75);
+
+    this.geometryBlack = THREE.BufferGeometryUtils.mergeBufferGeometries(geometriesBlack);
+
+    const geometriesWhite = [];
+    //face
+    geometriesWhite.push(new THREE.SphereGeometry(1, 4, 4, Math.PI/6, 2*Math.PI/3, Math.PI/3, 2*Math.PI/3));
+    //body
+    geometriesWhite.push(new THREE.SphereGeometry(1, 8, 6, Math.PI/6, 2*Math.PI/3));
+    geometriesWhite[1].translate(0, -1, 0);
+    geometriesWhite[1].scale(1, 2, 1);
+    this.geometryWhite = THREE.BufferGeometryUtils.mergeBufferGeometries(geometriesWhite);
+
+    const geometriesOrange = [];
+
+    //left foot
+    geometriesOrange.push(new THREE.CylinderGeometry(0.3, 0.5, 0.3, 3, 1));
+    geometriesOrange[0].rotateY(Math.PI);
+    geometriesOrange[0].scale(1, 1, 2.5);
+    geometriesOrange[0].translate(-0.5, -3.75, 0.2);
+
+    //right foot
+    geometriesOrange.push(new THREE.CylinderGeometry(0.3, 0.5, 0.3, 3, 1));
+    geometriesOrange[1].rotateY(Math.PI);
+    geometriesOrange[1].scale(1, 1, 2.5);
+    geometriesOrange[1].translate(0.5, -3.75, 0.2);
+
+    geometriesOrange.push(new THREE.CylinderGeometry(0, 0.5, 0.5, 3, 1));
+    geometriesOrange[2].rotateX(Math.PI/2);
+    geometriesOrange[2].translate(0, -0.1, 1);
+
+    this.geometryOrange = THREE.BufferGeometryUtils.mergeBufferGeometries(geometriesOrange);
+
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries([this.geometryBlack,
+                                                                     this.geometryWhite,
+                                                                     this.geometryOrange],
+                                                                     true);
+    recenterGeometry(this.geometry);
+  }
+});
+
+AFRAME.registerComponent('penguin', {
+
+  init () {
+    var materials = [new THREE.MeshBasicMaterial({
+                          color: 'black'
+                     }), new THREE.MeshBasicMaterial({
+                          color: 'white'
+                     }), new THREE.MeshBasicMaterial({
+                          color: 'orange'
+                     })]
+
+    this.el.setAttribute('geometry','primitive:penguin');
+    const mesh = this.el.getObject3D('mesh');
+    mesh.material = materials;
+  }
+});
+
+
+AFRAME.registerGeometry('paintbrush', {
+  schema: {
+  },
+
+  init: function (data) {
+    //radiusTop, radiusBottom, height, radialSegments
+    const geometriesBrush = [];
+    //tip of brush
+    geometriesBrush.push(new THREE.ConeGeometry(0.5, 1, 8));
+    //body of brush
+    geometriesBrush.push(new THREE.SphereGeometry(0.5, 8, 8, 0, 2*Math.PI, 0, Math.PI/2));
+    geometriesBrush[1].translate(0, 0.5, 0);
+    geometriesBrush[1].rotateX(Math.PI);
+
+    this.geometryBrush = THREE.BufferGeometryUtils.mergeBufferGeometries(geometriesBrush);
+
+    //neck of brush
+    const geometryNeck = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 8, 1);
+    geometryNeck.translate(0, -1, 0);
+
+    // Handle of brush
+    const geometriesHandle = []
+    geometriesHandle.push(new THREE.CylinderGeometry(0.2, 0.3, 0.5, 8, 1));
+    geometriesHandle[0].translate(0, -1.4, 0);
+
+    geometriesHandle.push(new THREE.CylinderGeometry(0.3, 0.2, 3.8, 8, 1));
+    geometriesHandle[1].translate(0, -3.5, 0);
+
+    this.geometryHandle = THREE.BufferGeometryUtils.mergeBufferGeometries(geometriesHandle);
+
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries([this.geometryBrush,
+                                                                     geometryNeck,
+                                                                     this.geometryHandle],
+                                                                     true);
+    recenterGeometry(this.geometry);
+  }
+});
+
+
+AFRAME.registerComponent('paintbrush', {
+
+  schema: {
+    color: {default: 'blue'}
+  },
+
+  init () {
+    var materials = [new THREE.MeshBasicMaterial({
+                          color: this.data.color
+                     }), new THREE.MeshBasicMaterial({
+                          color: 'silver'
+                     }), new THREE.MeshBasicMaterial({
+                          color: 'brown'
+                     })]
+
+    this.el.setAttribute('geometry','primitive:paintbrush');
+    const mesh = this.el.getObject3D('mesh');
+    mesh.material = materials;
+  }
+});
+
+AFRAME.registerGeometry('check', {
+  schema: {
+  },
+
+  init: function (data) {
+    //radiusTop, radiusBottom, height, radialSegments
+    const geometries = [];
+    // 2 cylinders, one tall and thin for the hat, one short and wider for the brim.
+    geometries.push(new THREE.BoxGeometry(0.05, 0.05, 0.05));
+    geometries.push(new THREE.BoxGeometry(0.15, 0.05, 0.05));
+    geometries[1].translate(0.05, -0.05, 0);
+
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+    this.geometry.rotateZ(Math.PI/4);
+
+    recenterGeometry(this.geometry);
+  }
+});
+
+AFRAME.registerGeometry('trophy', {
+  schema: {
+  },
+
+  init: function (data) {
+    //radiusTop, radiusBottom, height, radialSegments
+    const geometries = [];
+    // 2 cylinders, one tall and thin for the hat, one short and wider for the brim.
+    geometries.push(new THREE.CylinderGeometry(0.05, 0.5, 0.25, 12));
+    geometries.push(new THREE.SphereGeometry(0.5, 12, 6, 0, 2*Math.PI, 0, Math.PI/2));
+    geometries[1].rotateX(Math.PI);
+    geometries[1].translate(0, 0.5, 0);
+    geometries.push(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 12));
+    geometries[2].translate(0, 0.65, 0);
+    geometries.push(new THREE.CylinderGeometry(0.05, 0.55, 0.3, 12));
+    geometries[3].translate(0, 0.95, 0);
+    geometries.push(new THREE.SphereGeometry(0.1, 12, 6));
+    geometries[4].translate(0, 1.1, 0);
+    geometries.push(new THREE.TorusGeometry(0.5, 0.05, 12, 36));
+    geometries[5].translate(0, 1.0, 0);
+    geometries[5].scale(1.5, 0.5, 1);
+
+    this.geometry = THREE.BufferGeometryUtils.mergeBufferGeometries(geometries);
+    recenterGeometry(this.geometry);
+  }
+});
  AFRAME.registerComponent("layers", {
     // A-Frame's built-in array type wasn't working, so an array-like string will
     // be parsed manually. e.g. "1, 2, 3" => [1, 2, 3].
@@ -306,7 +730,9 @@ var ui = [
   */{"label": "Left position", "id":"left", "attribute":"position"},
   {"label": "Right position", "id":"right", "attribute":"position"},
   {"label": "Left scale", "id":"left", "attribute":"scale"},
-  {"label": "Right scale", "id":"right", "attribute":"scale"}
+  {"label": "Right scale", "id":"right", "attribute":"scale"},
+  {"label": "Figure Left", "id":"left", "attribute":"geometry"},
+  {"label": "Figure Right", "id":"right", "attribute":"geometry"},
 ];
 
   function load(ui) {
