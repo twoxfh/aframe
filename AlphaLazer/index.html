@@ -5,10 +5,7 @@
 <meta charset="utf-8">
 <title>Laser Controls</title>
 <meta name="description" content="Laser Controls - A-Frame">	
-<script src="https://aframe.io/releases/1.0.4/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/aframe-stereo-component@0.6.0/dist/aframe-stereo-component.min.js"></script>
-<script src="https://unpkg.com/aframe-text-geometry-component@0.5.1/dist/aframe-text-geometry-component.min.js"></script>
-<script src="https://cdn.rawgit.com/matthewbryancurtis/aframe-star-system-component/db4f1030/index.js"></script>	
+<script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
 </head>
 <body>
 <script>
@@ -17,7 +14,7 @@
   function shuffle(array) {
     var i = array.length,
         j = 0,
-        temp;
+        temp
 
     while (i--) {
 
@@ -34,13 +31,309 @@
 }
 
 var ranLetters = shuffle(['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',':','?','!','@','#','$','%','*','&']);
+var ranLetters2 = shuffle(['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',':','?','!','@','#','$','%','*','&']);
+
 
 function genColor() {
  return "hsla(" + ~~(360 * Math.random()) + "," +
                     "70%,"+
                     "80%,1)"
 		}
-		
+
+
+
+        var debug = AFRAME.utils.debug;
+
+var error = debug('aframe-text-component:error');
+
+
+class TextGeometry extends THREE.ExtrudeGeometry {
+
+constructor( text, parameters = {} ) {
+
+    const font = parameters.font;
+
+    if ( font === undefined ) {
+
+        super(); // generate default extrude geometry
+
+    } else {
+
+        const shapes = font.generateShapes( text, parameters.size );
+
+        // translate parameters to ExtrudeGeometry API
+
+        parameters.depth = parameters.height !== undefined ? parameters.height : 50;
+
+        // defaults
+
+        if ( parameters.bevelThickness === undefined ) parameters.bevelThickness = 10;
+        if ( parameters.bevelSize === undefined ) parameters.bevelSize = 8;
+        if ( parameters.bevelEnabled === undefined ) parameters.bevelEnabled = false;
+
+        super( shapes, parameters );
+
+    }
+
+    this.type = 'TextGeometry';
+
+}
+
+}
+
+
+
+class FontLoader extends THREE.Loader {
+
+constructor( manager ) {
+
+    super( manager );
+
+}
+
+load( url, onLoad, onProgress, onError ) {
+
+    const scope = this;
+
+    const loader = new THREE.FileLoader( this.manager );
+    loader.setPath( this.path );
+    loader.setRequestHeader( this.requestHeader );
+    loader.setWithCredentials( this.withCredentials );
+    loader.load( url, function ( text ) {
+
+        const font = scope.parse( JSON.parse( text ) );
+
+        if ( onLoad ) onLoad( font );
+
+    }, onProgress, onError );
+
+}
+
+parse( json ) {
+
+    return new Font( json );
+
+}
+
+}
+
+class Font {
+
+constructor( data ) {
+
+    this.isFont = true;
+
+    this.type = 'Font';
+
+    this.data = data;
+
+}
+
+generateShapes( text, size = 100 ) {
+
+    const shapes = [];
+    const paths = createPaths( text, size, this.data );
+
+    for ( let p = 0, pl = paths.length; p < pl; p ++ ) {
+
+        shapes.push( ...paths[ p ].toShapes() );
+
+    }
+
+    return shapes;
+
+}
+
+}
+
+function createPaths( text, size, data ) {
+
+const chars = Array.from( text );
+const scale = size / data.resolution;
+const line_height = ( data.boundingBox.yMax - data.boundingBox.yMin + data.underlineThickness ) * scale;
+
+const paths = [];
+
+let offsetX = 0, offsetY = 0;
+
+for ( let i = 0; i < chars.length; i ++ ) {
+
+    const char = chars[ i ];
+
+    if ( char === '\n' ) {
+
+        offsetX = 0;
+        offsetY -= line_height;
+
+    } else {
+
+        const ret = createPath( char, scale, offsetX, offsetY, data );
+        offsetX += ret.offsetX;
+        paths.push( ret.path );
+
+    }
+
+}
+
+return paths;
+
+}
+
+function createPath( char, scale, offsetX, offsetY, data ) {
+
+const glyph = data.glyphs[ char ] || data.glyphs[ '?' ];
+
+if ( ! glyph ) {
+
+    console.error( 'THREE.Font: character "' + char + '" does not exists in font family ' + data.familyName + '.' );
+
+    return;
+
+}
+
+const path = new THREE.ShapePath();
+
+let x, y, cpx, cpy, cpx1, cpy1, cpx2, cpy2;
+
+if ( glyph.o ) {
+
+    const outline = glyph._cachedOutline || ( glyph._cachedOutline = glyph.o.split( ' ' ) );
+
+    for ( let i = 0, l = outline.length; i < l; ) {
+
+        const action = outline[ i ++ ];
+
+        switch ( action ) {
+
+            case 'm': // moveTo
+
+                x = outline[ i ++ ] * scale + offsetX;
+                y = outline[ i ++ ] * scale + offsetY;
+
+                path.moveTo( x, y );
+
+                break;
+
+            case 'l': // lineTo
+
+                x = outline[ i ++ ] * scale + offsetX;
+                y = outline[ i ++ ] * scale + offsetY;
+
+                path.lineTo( x, y );
+
+                break;
+
+            case 'q': // quadraticCurveTo
+
+                cpx = outline[ i ++ ] * scale + offsetX;
+                cpy = outline[ i ++ ] * scale + offsetY;
+                cpx1 = outline[ i ++ ] * scale + offsetX;
+                cpy1 = outline[ i ++ ] * scale + offsetY;
+
+                path.quadraticCurveTo( cpx1, cpy1, cpx, cpy );
+
+                break;
+
+            case 'b': // bezierCurveTo
+
+                cpx = outline[ i ++ ] * scale + offsetX;
+                cpy = outline[ i ++ ] * scale + offsetY;
+                cpx1 = outline[ i ++ ] * scale + offsetX;
+                cpy1 = outline[ i ++ ] * scale + offsetY;
+                cpx2 = outline[ i ++ ] * scale + offsetX;
+                cpy2 = outline[ i ++ ] * scale + offsetY;
+
+                path.bezierCurveTo( cpx1, cpy1, cpx2, cpy2, cpx, cpy );
+
+                break;
+
+        }
+
+    }
+
+}
+
+return { offsetX: glyph.ha * scale, path: path };
+
+}
+
+
+var fontLoader = new FontLoader();
+
+AFRAME.registerComponent('text-geometry', {
+  schema: {
+    bevelEnabled: {default: false},
+    bevelSize: {default: 8, min: 0},
+    bevelThickness: {default: 12, min: 0},
+    curveSegments: {default: 12, min: 0},
+    font: {type: 'asset', default: 'https://rawgit.com/ngokevin/kframe/master/components/text-geometry/lib/helvetiker_regular.typeface.json'},
+    height: {default: 0.05, min: 0},
+    size: {default: 0.5, min: 0},
+    style: {default: 'normal', oneOf: ['normal', 'italics']},
+    weight: {default: 'normal', oneOf: ['normal', 'bold']},
+    value: {default: ''}
+  },
+
+  /**
+   * Called when component is attached and when component data changes.
+   * Generally modifies the entity based on the data.
+   */
+  update: function (oldData) {
+    var data = this.data;
+    var el = this.el;
+
+    var mesh = el.getOrCreateObject3D('mesh', THREE.Mesh);
+    if (data.font.constructor === String) {
+      // Load typeface.json font.
+      fontLoader.load(data.font, function (response) {
+        var textData = AFRAME.utils.clone(data);
+        textData.font = response;
+        mesh.geometry = new TextGeometry(data.value, textData);
+      });
+    } else if (data.font.constructor === Object) {
+      // Set font if already have a typeface.json through setAttribute.
+      mesh.geometry = new TextGeometry(data.value, data);
+    } else {
+      error('Must provide `font` (typeface.json) or `fontPath` (string) to text component.');
+    }
+  }
+});
+
+        AFRAME.registerComponent("layers", {
+  // A-Frame's built-in array type wasn't working, so an array-like string will
+  // be parsed manually. e.g. "1, 2, 3" => [1, 2, 3].
+  schema: {
+    default: "0",
+  },
+
+  update: function (oldData) {
+    const el = this.el;
+    const data = this.data;
+    const layerNumbers = data.split(",").map(Number);
+
+    // To manipulate layers of both camera AND meshes, iterate through all
+    // Object3Ds associated with the entity this component is attached to.
+    const objectMap = el.object3DMap;
+    for (let obj of Object.values(objectMap)) {
+      if (!obj.layers) {
+        return;
+      }
+
+      // Reset
+      obj.layers.disableAll();
+
+      // Apply
+      for (let num of layerNumbers) {
+        obj.layers.enable(num);
+      }
+    }
+    
+    
+  },
+  
+
+});
+
       AFRAME.registerComponent('boxes', {
         init: function () {
           var box;
@@ -55,9 +348,6 @@ function genColor() {
             rows = 5;
           };
           
-          var bigletter = document.querySelector('#letter');
-          var num = Math.floor(Math.random() * 35) + 0;
-          bigletter.setAttribute('text-geometry','value',ranLetters[num]);
           
           for (x = columns / -2; x < columns / 2; x++) {
             for (y = .5; y < rows; y++) {
@@ -72,11 +362,11 @@ function genColor() {
               var a=box.appendChild(letter);  
               var d = Math.random();
 			        if (d < 0.5) {
-				      letter.setAttribute('stereo','eye','right'); // 50% chance of being here
+				      letter.setAttribute('layers','0'); // 50% chance of being here
         			} else if (d < 0.9){
-				      letter.setAttribute('stereo','eye','left'); // 50% chance of being here
+				      letter.setAttribute('layers','0'); // 50% chance of being here
 		        	} else {
-    			    letter.setAttribute('stereo','eye','both'); // 50% chance of being here
+    			    letter.setAttribute('layers','0'); // 50% chance of being here
         			}
               el.appendChild(box);
               l++;
@@ -85,6 +375,7 @@ function genColor() {
         }
       });
 
+          
       AFRAME.registerComponent('shadow-if-mobile', {
         init: function () {
           if (!this.el.sceneEl.isMobile) {
@@ -97,48 +388,63 @@ function genColor() {
         }
       });
       
-      
+      AFRAME.registerComponent("timer", {
+  init: function () {
+    var start=Date.now();
+	var el = this.el;
+		setInterval(function () {
+		    var delta = Math.round((Date.now() - start)/1000);
+		    function fmtMSS(s){return(s-(s%=60))/60+(9<s?':':':0')+s}
+		    el.setAttribute("text-geometry","value", fmtMSS(delta));
+		}, 1000);
+	}
+});  
+      AFRAME.registerComponent('score',{
+        schema: {
+            score:{
+                type: 'int',
+                default: 0
+            },
+            round:{
+                type: 'int',
+                default: 0
+            },
+        }});
       AFRAME.registerComponent('intersect-color-change',{
         init:function(){
-          var el=this.el;
+            var bigletter = document.querySelector('#letter');
+            bigletter.setAttribute('text-geometry','value',ranLetters2[0]);
+           var el=this.el;
+          var self=this;
           var material=el.getAttribute('material');
           var initialColor=material.color;
-          var self=this;
-          el.addEventListener('mousedown',function(evt){
+           el.addEventListener('mousedown',function(evt){
             el.setAttribute('material','color','#EF2D5E');
-            console.log(el);
             var letter = document.querySelector('#letter');
-            if (el.firstElementChild.getAttribute('text-geometry').value == letter.getAttribute('text-geometry').value) {
-               
-               //window.location.reload();
-               var num = Math.floor(Math.random() * 35) + 0;
-               letter.setAttribute('text-geometry','value',ranLetters[num]);
-               
-               var msg = new SpeechSynthesisUtterance();
-                var voices = window.speechSynthesis.getVoices();
-                msg.voice = voices[10]; // Note: some voices don't support altering params
-                msg.voiceURI = 'native';
-                msg.volume = 1; // 0 to 1
-                msg.rate = 1; // 0.1 to 10
-                msg.pitch = 2; //0 to 2
-                msg.text = letter.getAttribute('text-geometry').value;
-                msg.lang = 'en-US';
+            if (el.firstElementChild.getAttribute('text-geometry').value == letter.getAttribute('text-geometry').value) {               
                 
-                msg.onend = function(e) {
-                 // console.log('Finished in ' + event.elapsedTime + ' seconds.');
-                };
-                
-                speechSynthesis.speak(msg);
-
+            var allboxes = document.querySelector('#allboxes');
+            if(allboxes.components['score'].data.score < 35) {
+                allboxes.components['score'].data.score++;
+                var hits = document.querySelector('#hits');
+                hits.setAttribute('text-geometry','value', String(allboxes.components['score'].data.score));
+               
+            } else {
+                allboxes.components['score'].data.round++;
+                var round = document.querySelector('#rounds');
+                round.setAttribute('text-geometry','value', String(allboxes.components['score'].data.round)); 
+                allboxes.components['score'].data.score=0;
             }
-            console.log(el.firstElementChild.getAttribute('text-geometry').value);
+            letter.setAttribute('text-geometry','value',ranLetters2[allboxes.components['score'].data.score]);
+            }
           });
           el.addEventListener('mouseup',function(evt){
             el.setAttribute('material','color',self.isMouseEnter?'#24CAFF':initialColor);
             
           });
           el.addEventListener('mouseenter',function(){
-            el.setAttribute('material','color','#24CAFF');self.isMouseEnter=true;
+            el.setAttribute('material','color','#24CAFF');
+            self.isMouseEnter=true;
             
           });
           el.addEventListener('mouseleave',function(){
@@ -148,31 +454,33 @@ function genColor() {
           });
           
         }
-        
       });
     </script>
-<a-scene background="color: #212" antialias="true">
+<a-scene background="color: #212" antialias="true" stats>
+    <a-mixin id="box" geometry="primitive: box" material="color: #FAFAFA" rotation="0 0 -35" scale="2.5 2.5 .5" intersect-color-change shadow="cast: true; receive: false"></a-mixin>
+
   <a-assets>
     <a-mixin id="boldFont" text="font: #optimerBoldFont" material="size:1;"></a-mixin>
     <a-asset-item id="optimerBoldFont" src="https://rawgit.com/mrdoob/three.js/dev/examples/fonts/helvetiker_bold.typeface.json"></a-asset-item>
   </a-assets>
-
 <a-entity id="letter" material="color:#ccc" position="-1.3 2 -4.9" rotation="-50 0 0" text-geometry= 'value: A; font: #optimerBoldFont; size:.7; bevelEnabled: false; height:.5; curveSegments:12; bevelSize:.1; bevelThickness:.1'></a-entity>
+<a-entity id="hits" material="color:#ccc" position=".4 1 -4.9" rotation="-50 0 0" text-geometry= 'value: 0; font: #optimerBoldFont; size:.7; bevelEnabled: false; height:.5; curveSegments:12; bevelSize:.1; bevelThickness:.1'></a-entity>
+<a-entity id="rounds" material="color:#ccc" position="-3 1 -4.9" rotation="-50 0 0" text-geometry= 'value: 0; font: #optimerBoldFont; size:.7; bevelEnabled: false; height:.5; curveSegments:12; bevelSize:.1; bevelThickness:.1'></a-entity>
+<a-entity id="clock" timer material="color:#ccc" position="-1.9 0 -4.9" rotation="-50 0 0" text-geometry= 'value: 0; font: #optimerBoldFont; size:.7; bevelEnabled: false; height:.5; curveSegments:12; bevelSize:.1; bevelThickness:.1'></a-entity>
 <a-entity position="-1 5 0">
-<a-entity id="camera" camera look-controls wasd-controls stereocam="eye:left">
+<a-entity id="camera" camera look-controls wasd-controls>
    <!--<a-entity cursor="fuse: true; fuseTimeout: 500"
             position="0 0 -1"
             geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-            material="color: black; shader: flat">
-  </a-entity>-->
+            material="color: black; shader: flat">-->
+  </a-entity>
 </a-entity>
 <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: [mixin='box']"></a-entity>
 <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: [mixin='box']" line="color: #118A7E"></a-entity>
 </a-entity>
 
 <a-light position="0 0.5 1" intensity="0.75"></a-light>
-<a-entity position="0 0 -10">
-<a-mixin id="box" geometry="primitive: box" material="color: #FAFAFA" rotation="0 0 -35" scale="2.5 2.5 .5" intersect-color-change shadow="cast: true; receive: false"></a-mixin>
+<a-entity id="allboxes" position="0 0 -10" score>
 <a-entity boxes></a-entity>
 <a-circle rotation="-90 0 0" radius="20" color="#666" position="0 -0.1 0" shadow="receive: true" roughness="1"></a-circle>
 <a-light type="point" position="0 10 -30" intensity="0.85" shadow-if-mobile></a-light>
@@ -182,7 +490,7 @@ function genColor() {
 <a-torus radius="20" arc="360" rotation="-90 0 0"></a-torus>
 </a-entity>
         <a-sky color="black"></a-sky>
-        <a-entity star-system></a-entity>
+        <a-entity></a-entity>
 </a-scene>
 </body>
 </html>
