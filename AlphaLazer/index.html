@@ -259,7 +259,7 @@ return { offsetX: glyph.ha * scale, path: path };
 
 
 var fontLoader = new FontLoader();
-
+AFRAME.registerComponent("u",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y+1,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("d",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y-1,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("n",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z-2;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("s",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z+2;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("e",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x-2,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("o",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x+2,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("ne",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x-1.45,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z-1.45;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("no",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x+1.45,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z-1.45;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("se",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x+1.45,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z+1.45;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}}),AFRAME.registerComponent("so",{init:function(){this.el.addEventListener("click",(function(e){console.log(this.getAttribute("position"));let t=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").x-1.45,o=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").y,i=document.querySelector("a-scene").querySelector("#vista").getAttribute("position").z+1.45;document.querySelector("a-scene").querySelector("#vista").setAttribute("animation",`property: position; to: ${t} ${o} ${i}; dur: 2000`)}))}});
 AFRAME.registerComponent('text-geometry', {
   schema: {
     bevelEnabled: {default: false},
@@ -468,12 +468,123 @@ AFRAME.registerComponent('text-geometry', {
 <a-entity id="rounds" material="color:#ccc" position="-3 1 -4.9" rotation="-50 0 0" text-geometry= 'value: 0; font: #optimerBoldFont; size:.7; bevelEnabled: false; height:.5; curveSegments:12; bevelSize:.1; bevelThickness:.1'></a-entity>
 <a-entity id="clock" timer material="color:#ccc" position="-1.9 0 -4.9" rotation="-50 0 0" text-geometry= 'value: 0; font: #optimerBoldFont; size:.7; bevelEnabled: false; height:.5; curveSegments:12; bevelSize:.1; bevelThickness:.1'></a-entity>
 <a-entity position="-1 5 0">
-<a-entity id="camera" camera look-controls wasd-controls>
-   <!--<a-entity cursor="fuse: true; fuseTimeout: 500"
+      <a-entity id="vista">
+        <a-entity id="controles" scale="0.6 0.6 0.6" position="0 1 0">
+          <a-entity
+            id="ring"
+            scale="2 2 2"
+            geometry="primitive: ring; radiusInner: 0.94; radiusOuter: 1.04"
+            rotation="270 0 0"
+            position="0 0.033 0"
+            material="color: purple; roughness: 0.09"
+          ></a-entity>
+
+          <a-entity
+            id="bolas"
+            position="0 0.15 0"
+            animation="property: position; to: 0 -0.05 -0; dur: 700; easing: linear; loop: true; dir: alternate"
+          >
+            <a-sphere
+              n
+              id="n"
+              position="0 0 -2"
+              scale="0.1 0.1 0.1"
+              material="color: yellow;"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-sphere
+              s
+              id="s"
+              position="0 0 2"
+              scale="0.1 0.1 0.1"
+              material="color: yellow;"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-sphere
+              e
+              id="e"
+              position="-2 0 0"
+              scale="0.1 0.1 0.1"
+              material="color: yellow;"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-sphere
+              o
+              id="o"
+              position="2 0 0"
+              scale="0.1 0.1 0.1"
+              material="color: yellow;"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-sphere
+              ne
+              id="ne"
+              position="-1.45 0 -1.45"
+              scale="0.1 0.1 0.1"
+              material="color: pink"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-sphere
+              no
+              id="no"
+              position="1.45 0 -1.45"
+              scale="0.1 0.1 0.1"
+              material="color: pink"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-sphere
+              se
+              id="se"
+              position="1.45 0 1.45"
+              scale="0.1 0.1 0.1"
+              material="color: pink"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-sphere
+              so
+              id="so"
+              position="-1.45 0 1.45"
+              scale="0.1 0.1 0.1"
+              material="color: pink"
+              geometry="primitive: icosahedron"
+              animation="property: rotation; to: 359 359 359; dur: 3000; easing: linear; loop: true"
+            ></a-sphere>
+            <a-entity
+              u
+              id="goup"
+              geometry="primitive: cone"
+              material="color: green;"
+              position="-0.5 0.084 -1.916"
+              scale="0.073 0.368 0.073"
+            ></a-entity>
+            <a-entity
+              d
+              id="godown"
+              geometry="primitive: cone"
+              material="color: green;"
+              position="0.462 0.084 -1.916"
+              scale="0.073 0.368 0.073"
+              rotation="0 0.16 -180"
+            ></a-entity>
+          </a-entity>
+        </a-entity>
+
+        <a-camera position="0 3 0" wasd-controls-enabled="false">
+          <a-entity
+            cursor="fuse: true; fuseTimeout: 50"
             position="0 0 -1"
-            geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-            material="color: black; shader: flat">-->
-  </a-entity>
+            geometry="primitive: ring; radiusInner: 0.019; radiusOuter: 0.02"
+            material="color: yellow; shader: flat"
+          ></a-entity>
+        </a-camera>
+      </a-entity>
 </a-entity>
 <a-entity id="leftHand" laser-controls="hand: left" raycaster="objects: [mixin='box']"></a-entity>
 <a-entity id="rightHand" laser-controls="hand: right" raycaster="objects: [mixin='box']" line="color: #118A7E"></a-entity>
